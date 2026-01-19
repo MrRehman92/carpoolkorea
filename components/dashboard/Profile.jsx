@@ -278,7 +278,7 @@ export default function Profile() {
                           readOnly
                           type="text"
                           name="status"
-                          value={user.status ? "Block" : "Active"}
+                          value={user && user.status ? "Block" : "Active"}
                           onChange={handleInpChange}
                           placeholder=""
                         />
@@ -293,7 +293,7 @@ export default function Profile() {
                           readOnly
                           type="text"
                           name="verify"
-                          value={user.verified ? "Not Verified" : "Yes"}
+                          value={user && user.verified ? "Not Verified" : "Yes"}
                           onChange={handleInpChange}
                           placeholder=""
                         />
@@ -307,7 +307,7 @@ export default function Profile() {
                           required
                           type="text"
                           name="address"
-                          value={user.address}
+                          value={user && user.address}
                           onChange={handleInpChange}
                           placeholder="ali tufan"
                         />

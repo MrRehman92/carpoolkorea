@@ -1,7 +1,7 @@
-import Listings3 from "@/components/carListings/Listings3";
-import Sidebar from "@/components/carListings/Sidebar";
+// import Listings3 from "@/components/carListings/Listings3";
+// import Sidebar from "@/components/carListings/Sidebar";
 
-import Header1 from "@/components/headers/Header1";
+// import Header1 from "@/components/headers/Header1";
 import React from "react";
 
 export const metadata = {
@@ -11,9 +11,9 @@ export const metadata = {
 export default function InventoryMapCardsPage() {
   return (
     <>
-      <Header1 headerClass="boxcar-header header-style-v1 style-two inner-header cus-style-1" />
+      {/* <Header1 headerClass="boxcar-header header-style-v1 style-two inner-header cus-style-1" />
       <Sidebar />
-      <Listings3 />
+      <Listings3 /> */}
     </>
   );
 }
