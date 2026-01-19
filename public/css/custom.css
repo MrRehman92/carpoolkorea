@@ -38,9 +38,10 @@ button[type='submit']:disabled {
     width: max-content !important;
 }
 
-.myBookingSec{
-    padding: 15px!important;
+.myBookingSec {
+    padding: 15px !important;
 }
+
 /* my bookings card */
 .nav-scroll-x::-webkit-scrollbar {
     display: none;
@@ -146,12 +147,13 @@ button[type='submit']:disabled {
     margin: 0 0 16px;
 }
 
-.mb-title-listing{
+.mb-title-listing {
     margin-bottom: 38px;
 }
-.mb-filtBtn{
-    outline: none!important;
-    box-shadow: none!important;
+
+.mb-filtBtn {
+    outline: none !important;
+    box-shadow: none !important;
 }
 
 button:focus,
@@ -161,28 +163,49 @@ select:focus {
     outline: none !important;
     box-shadow: none !important;
 }
-select:focus{
-    border: 1px solid lightgray!important;
+
+select:focus {
+    border: 1px solid lightgray !important;
 }
 
-.detail-sec .mbd-top-card{
+.detail-sec .mbd-top-card {
     border-radius: 12px;
 }
 
 /* car listing */
-.cl-rightBox{
-    padding-top: 12px!important;
-    width: 75%!important;
+.cl-rightBox {
+    padding-top: 12px !important;
+    width: 75% !important;
     /* border-radius: 0!important;
     border: none!important; */
 }
-.cl-contentBoxTwo::before{
-    height: 155px!important;
-    top: -10px!important;
+
+.cl-contentBoxTwo::before {
+    height: 155px !important;
+    top: -8px !important;
     /* top: 0!important; */
 }
-.cl-leftBox{
+
+.cl-leftBox {
     width: 25%;
+}
+
+.cl-rightBox .content-box {
+    width: 70% !important;
+}
+
+.cl-rightBox .cl-contentBoxTwo {
+    margin-left: 0 !important;
+}
+
+
+
+.inventory-sidebar .categories-box {
+    padding: 10px 0 0 0;
+}
+
+.price-box form .form_boxes {
+    margin-bottom: 20px;
 }
 
 
@@ -235,17 +258,19 @@ select:focus{
         width: 100%;
     }
 
-    .detail-sec .info-item{
-        text-align: left!important;
+    .detail-sec .info-item {
+        text-align: left !important;
         display: flex;
         align-items: center;
         justify-content: space-between;
         border-bottom: 1px dotted lightgray;
     }
-    .detail-sec .mbd-top-card{
+
+    .detail-sec .mbd-top-card {
         padding: 0;
-        box-shadow: none!important;
+        box-shadow: none !important;
     }
+
     .car-card {
         padding: 0;
     }
@@ -253,7 +278,7 @@ select:focus{
     /* .booking-info {
         display: none;
     } */
-    .mb-mobile-hidden{
+    .mb-mobile-hidden {
         display: none;
     }
 
@@ -265,7 +290,7 @@ select:focus{
     .car-image,
     .car-image img {
         width: 100%;
-        height: auto!important;
+        height: auto !important;
     }
 
     .car-card .mb-details {
@@ -285,32 +310,35 @@ select:focus{
         margin-bottom: 0;
     }
 
-    .mb-fs-row{
+    .mb-fs-row {
         width: 100%;
         justify-content: space-between;
     }
-    .mb-sbox{
-        width: 100%!important;
+
+    .mb-sbox {
+        width: 100% !important;
     }
 
-    .mb-card-right-box{
+    .mb-card-right-box {
         position: absolute;
         right: 10px;
         top: 10px;
     }
 
     /* mbd */
-    .mbd-car-card{
+    .mbd-car-card {
         display: block;
     }
-    .mbd-car-card .mb-card-right-box{
+
+    .mbd-car-card .mb-card-right-box {
         position: unset;
-        flex-direction: row-reverse!important;
+        flex-direction: row-reverse !important;
         padding: 0 15px;
         align-items: center;
-        padding:  0 10px 14px;
+        padding: 0 10px 14px;
     }
-    .mbd-car-card .car-info{
+
+    .mbd-car-card .car-info {
         padding-bottom: 0;
     }
 
@@ -319,5 +347,4 @@ select:focus{
         margin-top: 10px;
         display: none;
     } */
-
 }

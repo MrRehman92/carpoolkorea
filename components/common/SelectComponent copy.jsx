@@ -4,32 +4,26 @@ import { useEffect, useRef, useState } from "react";
 
 export default function SelectComponent({
   options = ["New York", "Los Vegas", "California"],
-  onChange
 }) {
   const [isDromdownOpen, setIsDromdownOpen] = useState(false);
   const [selectedOption, setSelectedOption] = useState(options[0]);
   const ref = useRef(null);
-  
   const handleClickOutside = (event) => {
+    // Check if the click was outside the referenced element
     if (ref.current && !ref.current.contains(event.target)) {
-      setIsDromdownOpen(false);
+      setIsDromdownOpen(false); // Close the element or perform an action
     }
   };
 
   useEffect(() => {
+    // Add event listener on mount
     document.addEventListener("click", handleClickOutside);
+
+    // Clean up event listener on unmount
     return () => {
       document.removeEventListener("click", handleClickOutside);
     };
   }, []);
-
-  const handleSelect = (option) => {
-    setSelectedOption(option);
-    setIsDromdownOpen(false);
-    if (onChange) {
-      onChange(option);
-    }
-  };
 
   return (
     <div ref={ref} className={`drop-menu  ${isDromdownOpen ? "active" : ""} `}>
@@ -58,7 +52,10 @@ export default function SelectComponent({
       >
         {options.map((option, index) => (
           <li
-            onClick={() => handleSelect(option)}
+            onClick={() => {
+              setSelectedOption(option);
+              setIsDromdownOpen(false);
+            }}
             key={index}
           >
             {option}

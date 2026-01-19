@@ -1,503 +1,755 @@
 "use client";
 
-import Slider from "rc-slider";
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
 import Image from "next/image";
-import SelectComponent from "../../common/SelectComponent";
-import SelectCompFunctional from "../../common/SelectCompFunctional";
 import Link from "next/link";
+import "rc-slider/assets/index.css";
+import SelectCompFunctional from "../../common/SelectCompFunctional";
 import Pagination from "../../common/NewPagination";
 import Sidebar from "./Sidebar";
 
-import { getVehicles } from "@/utils/vehicles/vehicleAPI";
+import { DEFAULT_FILTERS, DEFAULT_BOUNDS } from "@/constants/filters";
 
-const CarImage = ({ src, alt, priority }) => {
-  const [imgSrc, setImgSrc] = useState(src);
+import { getCarMakes, getFilterOptions, getVehicles, SORT_OPTIONS } from "@/utils/vehicles/vehicleAPI";
 
-  useEffect(() => setImgSrc(src), [src]);
-
-  return (
-    <Image
-      alt={alt}
-      src={imgSrc}
-      width={260}
-      height={195}
-      style={{ objectFit: "fill", height: "100%" }}
-      priority={priority}
-      onError={() => setImgSrc("/images/resource/about-inner1-5.jpg")}
-    />
-  );
-};
+/* ---------------- HELPER UTILS (From Merge) ---------------- */
 
 // ✅ Choose correct image base by endpoint
 const getImageBase = (endpoint) => {
-  const e = String(endpoint || "").toLowerCase();
-  if (e === "buses") return process.env.NEXT_PUBLIC_BUSES_IMG_SRC_NEW;
-  if (e === "trucks") return process.env.NEXT_PUBLIC_TRUCKS_IMG_SRC_NEW;
-  return process.env.NEXT_PUBLIC_CARS_IMG_SRC_NEW; // cars + suvs fallback
+    const e = String(endpoint || "").toLowerCase();
+    if (e === "buses") return process.env.NEXT_PUBLIC_BUSES_IMG_SRC_NEW;
+    if (e === "trucks") return process.env.NEXT_PUBLIC_TRUCKS_IMG_SRC_NEW;
+    return process.env.NEXT_PUBLIC_CARS_IMG_SRC_NEW; // cars + suvs fallback
 };
 
 // ✅ Normalize different API responses into one shape for UI
 const normalizeVehicle = (v = {}, endpoint = "cars") => {
-  // cars/suvs: price sometimes nested in "0"
-  const nestedPriceObj = v?.[0];
-  const price = v.price ?? nestedPriceObj?.price ?? null;
-  const discount_price = v.discount_price ?? nestedPriceObj?.discount_price ?? null;
+    // cars/suvs: price sometimes nested in "0" - logic from merge
+    const nestedPriceObj = v?.[0];
+    const price = v.price ?? nestedPriceObj?.price ?? null;
+    const discount_price = v.discount_price ?? nestedPriceObj?.discount_price ?? null;
 
-  return {
-    id: v.id,
-    name: v.name,
-    slug: v.slug,
-    vin: v.vin,
+    return {
+        id: v.id,
+        name: v.name,
+        slug: v.slug,
+        vin: v.vin,
 
-    price,
-    discount_price,
+        price,
+        discount_price,
+        final_price: v.final_price || (discount_price ? (price - discount_price) : price),
 
-    status: v.status,
-    booking_status: v.booking_status,
-    year: v.model_year ?? null,
+        status: v.status,
+        booking_status: v.booking_status,
+        year: v.model_year ?? null,
 
-    odometer: v.odometer ?? null,
-    fuel_type: v.fuel_type ?? null,
-    transmission: v.transmission ?? null,
+        odometer: v.odometer ?? null,
+        fuel_type: v.fuel_type ?? null,
+        transmission: v.transmission ?? null,
 
-    // cars/suvs
-    engine_volume: v.engine_volume ?? null,
-    drive_type: v.drive_type ?? null,
-    vehicle_type: v.vehicle_type ?? null,
+        // cars/suvs
+        engine_volume: v.engine_volume ?? null,
+        drive_type: v.drive_type ?? null,
+        vehicle_type: v.vehicle_type ?? null,
 
-    // buses
-    color: v.color ?? null,
-    weight: v.weight ?? null,
+        // buses
+        color: v.color ?? null,
+        weight: v.weight ?? null,
 
-    // trucks
-    cabin_type: v.cabin_type ?? null,
-    loading_weight: v.loading_weight ?? null,
-    axle_type: v.axle_type ?? null,
+        // trucks
+        cabin_type: v.cabin_type ?? null,
+        loading_weight: v.loading_weight ?? null,
+        axle_type: v.axle_type ?? null,
 
-    passenger: v.passenger ?? null,
-    main_image: v.main_image ?? null,
+        passenger: v.passenger ?? null,
+        main_image: v.main_image ?? null,
 
-    _endpoint: endpoint,
-  };
+        _endpoint: endpoint,
+    };
 };
 
-// ✅ Functional sort mapping (labels -> API values)
-const SORT_OPTIONS = [
-  { label: "Sort by", value: "" },
-  { label: "Recent Date", value: "recent" },
-  { label: "Price Low to High", value: "price_asc" },
-  { label: "Price High to Low", value: "price_desc" },
-  { label: "Year Low to High", value: "year_asc" },
-  { label: "Year High to Low", value: "year_desc" },
-  { label: "Mileage Low to High", value: "mileage_asc" },
-  { label: "Mileage High to Low", value: "mileage_desc" },
-];
+/* ---------------- FILTER NORMALIZER ---------------- */
 
-// ✅ helper
-const sortLabelFromValue = (val) =>
-  SORT_OPTIONS.find((o) => o.value === val)?.label || "Sort by";
+const EMPTY_FILTERS = {};
+const normalizeFilters = (rawFilters, currentDefaults = {}) => {
+    const cleaned = {};
+
+    Object.entries(rawFilters).forEach(([key, value]) => {
+        // Arrays
+        if (Array.isArray(value)) {
+            if (value.length > 0) cleaned[key] = value;
+            return;
+        }
+
+        // Strings
+        if (typeof value === "string") {
+            const v = value.trim();
+            if (v !== "" &&
+                v !== "All Makes" &&
+                v !== "All Models" &&
+                v !== "All Years" &&
+                v !== "All Colors" &&
+                v !== "All") {
+                cleaned[key] = value;
+            }
+            return;
+        }
+
+        // Numbers
+        if (typeof value === "number") {
+            cleaned[key] = value;
+            return;
+        }
+    });
+
+    return Object.keys(cleaned).length === 0 ? EMPTY_FILTERS : cleaned;
+};
+
+const CarImage = ({ src, alt, priority }) => {
+    const [imgSrc, setImgSrc] = useState(src);
+
+    useEffect(() => {
+        setImgSrc(src);
+    }, [src]);
+
+    return (
+        <Image
+            alt={alt}
+            src={imgSrc}
+            width={260}
+            height={195}
+            style={{ objectFit: "fill", height: "100%" }}
+            priority={priority}
+            onError={() => setImgSrc("/images/resource/about-inner1-5.jpg")}
+        />
+    );
+};
+
 
 export default function Listings({
-  endpoint = "cars",
-  breadcrumbTitle = "Vehicles for Sale",
-  heading = "Browse Vehicles",
-  filters = [],
+    endpoint = "cars",
+    breadcrumbTitle = "Vehicles",
+    heading = "Browse Vehicles",
 }) {
-  const topRef = useRef(null);
+    // Pagination & Sorting States
+    const [pagination, setPagination] = useState(null);
+    const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(50);
+    const [sortbyOpt, setSortbyOpt] = useState('Sort by');
+    const [sortbyVal, setSortbyVal] = useState('default');
 
-  // ✅ Persist Per Page across all pages (cars/suvs/buses/trucks) + browser restart
-  const PER_PAGE_KEY = "vehicles_per_page_v1";
+    // Data States
+    const [vehicles, setVehicles] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-  // ✅ Responsive title limit
-  const getLimitByScreen = () => {
-    if (typeof window === "undefined") return 40;
-    const w = window.innerWidth;
-    if (w < 576) return 30;
-    if (w < 992) return 35;
-    return 40;
-  };
+    // Filter Data (Makes/Index options)
+    const [makes, setMakes] = useState([]);
+    const [makeIds, setMakeIds] = useState([]);
+    const [filterOptions, setFilterOptions] = useState({
+        years: [],
+        fuel_types: [],
+        vehicle_types: [],
+        transmissions: [],
+        drive_types: [],
+        passengers: [],
+        exterior_colors: [],
+        doors: [],
+        models: [],
+        makes: [],
+        ranges: {}
+    });
 
-  const [titleLimit, setTitleLimit] = useState(getLimitByScreen());
-  useEffect(() => {
-    const handleResize = () => setTitleLimit(getLimitByScreen());
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+    // Raw filters
+    const [rawFilters, setRawFilters] = useState(DEFAULT_FILTERS);
 
-  const limitLetters = (text) => {
-    const s = String(text || "").trim();
-    if (!s) return "";
-    return s.length > titleLimit ? s.slice(0, titleLimit).trim() + "..." : s;
-  };
+    // Default sliders (min/max)
+    const [defaults, setDefaults] = useState(DEFAULT_BOUNDS);
 
-  const [pagination, setPagination] = useState(null);
-  const [page, setPage] = useState(1);
+    const [isFiltersLoaded, setIsFiltersLoaded] = useState(false);
 
-  // ✅ SSR-safe default first render
-  const [perPage, setPerPage] = useState(50);
-  const [hydrated, setHydrated] = useState(false);
+    // Load perPage from local storage
+    useEffect(() => {
+        const saved = localStorage.getItem("vehicles_per_page");
+        if (saved) {
+            setPerPage(Number(saved));
+        }
+    }, []);
 
-  // ✅ IMPORTANT: store actual sort VALUE (not label)
-  const [sort, setSort] = useState("");
+    // Active Filters
+    const activeFilters = useMemo(
+        () => normalizeFilters(rawFilters, defaults),
+        [rawFilters, defaults]
+    );
 
-  const [vehicles, setVehicles] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  const [price, setPrice] = useState([5000, 35000]);
-
-  // ✅ Hydrate perPage from localStorage AFTER mount (fix hydration mismatch)
-  useEffect(() => {
-    setHydrated(true);
-    if (typeof window === "undefined") return;
-
-    const raw = window.localStorage.getItem(PER_PAGE_KEY);
-    const n = Number(raw);
-    const saved = [20, 30, 50, 80, 100].includes(n) ? n : 50;
-
-    setPerPage(saved);
-  }, []);
-
-  // ✅ Save perPage only AFTER hydration
-  useEffect(() => {
-    if (!hydrated) return;
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(PER_PAGE_KEY, String(perPage));
-  }, [hydrated, perPage]);
-
-  const imageBase = useMemo(() => getImageBase(endpoint), [endpoint]);
-
-  const goToTop = () => {
-    topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  // ✅ use this everywhere instead of setPage (so it scrolls up)
-  const goToPage = (p) => {
-    setPage(p);
-    setTimeout(goToTop, 0);
-  };
-
-  const getStatusBadge = (vehicle) => {
-    const booking = String(vehicle?.booking_status || "").trim().toLowerCase();
-    const status = String(vehicle?.status || "").trim().toLowerCase();
-
-    if (booking === "temporary booked") return { text: "Reserved", color: "#dc3545" };
-    if (status === "sale") return { text: "Sale", color: "#198754" };
-    return { text: "Sold", color: "#dc3545" };
-  };
-
-  const handlePerPageChange = (value) => {
-    const v = Number(value);
-    setPerPage(v);
-    goToPage(1); // ✅ reset to first page + scroll up
-  };
-
-  // ✅ sort change: convert label -> value and reset page
-  const handleSortChange = (label) => {
-    const found = SORT_OPTIONS.find((o) => o.label === label);
-    setSort(found?.value || "");
-    goToPage(1);
-  };
-
-  const fmtNumber = (val) => {
-    const n = Number(val);
-    if (Number.isNaN(n)) return "0";
-    return n.toLocaleString("en-US");
-  };
-
-  const fetchVehicles = useCallback(
-    async (pageNo, aliveRef) => {
-      setLoading(true);
-      try {
-        const res = await getVehicles(endpoint, pageNo, perPage, {
-          sort, // ✅ send sort VALUE to API
-          price_min: price?.[0],
-          price_max: price?.[1],
-        });
-
-        if (aliveRef && !aliveRef.current) return;
-
-        const normalized = (res?.data || []).map((v) => normalizeVehicle(v, endpoint));
-        setVehicles(normalized);
-        setPagination(res?.pagination || null);
-      } catch (err) {
-        console.error("Failed to load vehicles", err);
-        if (aliveRef && !aliveRef.current) return;
-        setVehicles([]);
-        setPagination(null);
-      } finally {
-        if (aliveRef && !aliveRef.current) return;
-        setLoading(false);
-      }
-    },
-    [endpoint, perPage, sort, price]
-  );
-
-  useEffect(() => {
-    const aliveRef = { current: true };
-    fetchVehicles(page, aliveRef);
-    return () => {
-      aliveRef.current = false;
+    // Number formatter function
+    const fmtNumber = (val) => {
+        const n = Number(val);
+        if (Number.isNaN(n)) return "0";
+        return n.toLocaleString("en-US");
     };
-  }, [page, fetchVehicles]);
 
-  // reset page when filters/endpoints change
-  useEffect(() => {
-    setPage(1);
-  }, [endpoint, sort, perPage, price?.[0], price?.[1]]);
+    // Get status
+    const getStatusBadge = (v) => {
+        const booking = String(v?.booking_status || "").trim().toLowerCase();
+        const status = String(v?.status || "").trim().toLowerCase();
 
-  // ✅ Build “chips” list depending on vehicle type/fields
-  const buildChips = (v) => {
-    const e = String(endpoint || "").toLowerCase();
+        if (status !== "sale") {
+            return { text: "Sold", color: "#dc3545" };
+        }
 
-    if (e === "trucks") {
-      return [
-        v.loading_weight ? `${v.loading_weight} Ton` : null,
-        v.axle_type || null,
-        v.cabin_type || null,
-        v.color || null,
-      ].filter(Boolean);
-    }
+        if (booking !== "sale") {
+            return { text: "Reserved", color: "#dc3545" };
+        }
 
-    if (e === "buses") {
-      return [
-        v.engine_volume != null ? `${fmtNumber(v.engine_volume)} CC` : null,
-        v.color || null,
-        v.weight != null ? `${v.weight} Ton` : null,
-        v.passenger != null ? `${Number(v.passenger)} Seats` : null,
-      ].filter(Boolean);
-    }
+        return { text: "Sale", color: "#198754" };
+    };
 
-    // cars/suvs
-    return [
-      v.engine_volume != null ? `${fmtNumber(v.engine_volume)} CC` : null,
-      v.drive_type || null,
-      v.vehicle_type || null,
-      v.passenger != null ? `${Number(v.passenger)} Seats` : null,
-    ].filter(Boolean);
-  };
+    // ✅ Build “chips” list depending on vehicle type/fields (From Merge)
+    const buildChips = (v) => {
+        const e = String(endpoint || "").toLowerCase();
 
-  const canPrev = !!pagination && pagination.current_page > 1;
-  const canNext = !!pagination && pagination.current_page < pagination.last_page;
+        if (e === "trucks") {
+            return [
+                v.loading_weight ? `${v.loading_weight} Ton` : null,
+                v.axle_type || null,
+                v.cabin_type || null,
+                v.color || null,
+            ].filter(Boolean);
+        }
 
-  return (
-    <section className="cars-section-thirteen layout-radius">
-      <div className="boxcar-container">
-        <div className="boxcar-title-three wow fadeInUp">
-          <ul className="breadcrumb">
-            <li>
-              <Link href={`/`}>Home</Link>
-            </li>
-            <li>
-              <span>{breadcrumbTitle}</span>
-            </li>
-          </ul>
+        if (e === "buses") {
+            return [
+                v.engine_volume != null ? `${fmtNumber(v.engine_volume)} CC` : null,
+                v.color || null,
+                v.weight != null ? `${v.weight} Ton` : null,
+                v.passenger != null ? `${Number(v.passenger)} Seats` : null,
+            ].filter(Boolean);
+        }
 
-          <h2>{heading}</h2>
+        // cars/suvs
+        return [
+            v.engine_volume != null ? `${fmtNumber(v.engine_volume)} CC` : null,
+            v.drive_type || null,
+            v.vehicle_type || null,
+            v.passenger != null ? `${Number(v.passenger)} Seats` : null,
+        ].filter(Boolean);
+    };
 
-          {!!filters?.length && (
-            <ul className="service-list">
-              {filters.map((filter, index) => (
-                <li key={index}>
-                  <a href="#">{filter.text}</a>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+    const isCarsOrSuvs = endpoint === 'cars' || endpoint === 'suvs';
+    const showSidebar = true;
 
-        <div className="row">
-        <Sidebar />
+    // Fetch car makes and filter options
+    useEffect(() => {
+        const initData = async () => {
 
-          {/* LIST */}
-          <div className="col-xl-9 col-md-12 col-sm-12">
-            <div className="right-box">
-              {/* ✅ scroll target */}
-              <div ref={topRef} />
+            if (!isCarsOrSuvs) {
+                setIsFiltersLoaded(true);
+                return;
+            }
 
-              <div className="text-box">
-                {/* ✅ Showing text + top arrows */}
-                <div className="text d-flex align-items-center gap-2">
-                  {loading ? (
-                    <span>Loading vehicles...</span>
-                  ) : vehicles.length === 0 ? (
-                    <span>No vehicles found.</span>
-                  ) : (
-                    <>
-                      <span>
-                        Showing {pagination?.from} to {pagination?.to} of {pagination?.total} vehicles
-                      </span>
+            try {
+                const [makesRes, optionsRes] = await Promise.all([
+                    getCarMakes(),
+                    getFilterOptions()
+                ]);
 
-                      <button
-                        type="button"
-                        className="btn btn-light btn-sm"
-                        disabled={!canPrev}
-                        onClick={() => goToPage(pagination.current_page - 1)}
-                        aria-label="Previous page"
-                        title="Previous"
-                      >
-                        ←
-                      </button>
+                if (makesRes?.data) {
+                    const make = makesRes.data.map(item => item.name);
+                    const makeId = makesRes.data.map(item => item.id);
+                    setMakes(make);
+                    setMakeIds(makeId);
+                }
 
-                      <button
-                        type="button"
-                        className="btn btn-light btn-sm"
-                        disabled={!canNext}
-                        onClick={() => goToPage(pagination.current_page + 1)}
-                        aria-label="Next page"
-                        title="Next"
-                      >
-                        →
-                      </button>
-                    </>
-                  )}
+                if (optionsRes?.success && optionsRes?.data) {
+                    setFilterOptions(optionsRes.data);
+
+                    // slider defaults
+                    if (optionsRes.data.ranges) {
+                        const r = optionsRes.data.ranges;
+                        setDefaults({
+                            min_price: r.min_price ?? 0,
+                            max_price: r.max_price ?? 0,
+                            min_mileage: r.min_mileage ?? 0,
+                            max_mileage: r.max_mileage ?? 0,
+                            min_engine_volume: r.min_engine_volume ?? 0,
+                            max_engine_volume: r.max_engine_volume ?? 0,
+                        });
+                    }
+                }
+
+            } catch (error) {
+                console.error("Failed to fetch initial data:", error);
+            } finally {
+                setIsFiltersLoaded(true);
+            }
+        };
+        initData();
+    }, [endpoint, isCarsOrSuvs]);
+
+    // Clear all filters
+    const clearAllFilters = () => {
+        setRawFilters(DEFAULT_FILTERS);
+        setPage(1);
+    };
+
+    // Active filters count
+    const activeFilterCount = Object.keys(activeFilters).length;
+
+    // update filter options based on current selections
+    const updateFilterOptions = useCallback(async (filters) => {
+        if (!isCarsOrSuvs) return;
+
+        try {
+            const res = await getFilterOptions(filters);
+            if (res?.success && res?.data) {
+                setFilterOptions(res.data);
+            }
+        } catch (error) {
+            console.error("Failed to update filter options:", error);
+        }
+    }, [isCarsOrSuvs]);
+
+    // fetch vehicles
+    const fetchVehiclesData = useCallback(
+        async (pageNo, filters) => {
+            setLoading(true);
+
+            try {
+                const res = await getVehicles(
+                    endpoint,
+                    pageNo,
+                    perPage,
+                    sortbyVal,
+                    filters
+                );
+
+                const normalized = (res?.data || []).map((v) => normalizeVehicle(v, endpoint));
+                setVehicles(normalized);
+                setPagination(res?.pagination || null);
+            } catch (err) {
+                console.error(`Failed to fetch ${endpoint}:`, err);
+                setVehicles([]);
+                setPagination(null);
+            } finally {
+                setLoading(false);
+            }
+        },
+        [endpoint, perPage, sortbyVal]
+    );
+
+    // Fetch cars when page / filters / sort changes
+    useEffect(() => {
+        if (!isFiltersLoaded) return;
+
+        const timer = setTimeout(() => {
+            fetchVehiclesData(page, activeFilters);
+            if (isCarsOrSuvs) updateFilterOptions(activeFilters);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [page, activeFilters, fetchVehiclesData, updateFilterOptions, isFiltersLoaded, isCarsOrSuvs]);
+
+    /* ---------------- HANDLERS ---------------- */
+
+    const handleSidebarFilterChange = useCallback((filters) => {
+        setRawFilters(filters);
+        setPage(1);
+    }, []);
+
+    const handleSortChange = (option, value) => {
+        setSortbyOpt(option);
+        setSortbyVal(value);
+        setPage(1);
+    };
+
+    const handlePerPageChange = (value) => {
+        const val = Number(value);
+        setPerPage(val);
+        setPage(1);
+        localStorage.setItem("vehicles_per_page", val);
+    };
+
+    const handlePageChange = (pageNo) => {
+        if (pageNo >= 1 && pageNo <= pagination?.last_page) {
+            setPage(pageNo);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
+    const canPrev = !!pagination && pagination.current_page > 1;
+    const canNext = !!pagination && pagination.current_page < pagination.last_page;
+
+    const imageBase = useMemo(() => getImageBase(endpoint), [endpoint]);
+
+    return (
+        <section className="cars-section-thirteen layout-radius">
+            <div className="boxcar-container">
+                <div className="boxcar-title-three wow fadeInUp">
+                    <ul className="breadcrumb">
+                        <li>
+                            <Link href="/">Home</Link>
+                        </li>
+                        <li>
+                            <span>{breadcrumbTitle}</span>
+                        </li>
+                    </ul>
+                    <h2>{heading} Available Stock</h2>
                 </div>
 
-                <form onSubmit={(e) => e.preventDefault()} className="d-flex">
-                  <div className="form_boxes v3">
-                    <SelectCompFunctional
-                      options={SORT_OPTIONS.map((o) => o.label)}
-                      value={sortLabelFromValue(sort)}
-                      onChange={handleSortChange}
+                <div className="row">
+                    <Sidebar
+                        onFilterChange={handleSidebarFilterChange}
+                        makes={makes}
+                        makeIds={makeIds}
+                        filterOptions={filterOptions}
+                        defaults={defaults}
+                        filters={rawFilters}
                     />
-                  </div>
 
-                  <div className="form_boxes v3 ms-3">
-                    <small>Per Page</small>
-                    <SelectCompFunctional
-                      options={["20", "30", "50", "80", "100"]}
-                      value={hydrated ? String(perPage) : "50"}  // ✅ SSR-safe
-                      onChange={handlePerPageChange}
-                    />
-                  </div>
-                </form>
-              </div>
+                    {/* Listing */}
+                    <div className="col-xl-9 col-md-12 col-sm-12">
+                        <div className="right-box">
 
-              <div className="cars-container">
-                {loading && (
-                  <div className="content-column rounded">
-                    <div className="inner-column vh-100 bg-light rounded">
-                      <div className="text-center py-5">
-                        <div className="spinner-border position-fixed" role="status">
-                          <span className="visually-hidden">Loading...</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                            {/* Filter Status Bar */}
+                            {activeFilterCount > 0 && (
+                                <div className="filter-summary mb-3 p-3 bg-light rounded d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                    <div className="d-flex flex-wrap gap-2">
+                                        {/* Render Range Tags */}
+                                        {[
+                                            { key: 'price', label: 'Price', unit: '$', isCurrency: true },
+                                            { key: 'mileage', label: 'Mileage', unit: ' km', isCurrency: false },
+                                            { key: 'year', label: 'Year', unit: '', isCurrency: false },
+                                            { key: 'engine_volume', label: 'Engine', unit: ' CC', isCurrency: false },
+                                        ].map(range => {
+                                            const minKey = `min_${range.key}`;
+                                            const maxKey = `max_${range.key}`;
+                                            const isMinActive = activeFilters[minKey] !== undefined;
+                                            const isMaxActive = activeFilters[maxKey] !== undefined;
 
-                {!loading && vehicles.length === 0 && (
-                  <div className="py-5 text-center">
-                    <p>No vehicles found.</p>
-                  </div>
-                )}
+                                            if (!isMinActive && !isMaxActive) return null;
 
-                {vehicles.map((elm, i) => {
-                  const chips = buildChips(elm);
-                  const badge = getStatusBadge(elm);
+                                            const minVal = isMinActive ? fmtNumber(rawFilters[minKey]) : null;
+                                            const maxVal = isMaxActive ? fmtNumber(rawFilters[maxKey]) : null;
 
-                  return (
-                    <div key={elm?.id ?? i} className="service-block-thirteen cl-row-block">
-                      <div className="inner-box">
-                        <div className="image-box cl-leftBox">
-                          <figure className="image" style={{ height: "100%" }}>
-                            <Link href={`/inventory-page-single-v1/${elm.id}`}>
-                              <CarImage
-                                src={`${imageBase}/${elm.main_image}`}
-                                alt={elm.name}
-                                priority={i <= 2}
-                              />
-                            </Link>
-                          </figure>
-                        </div>
+                                            let text;
+                                            if (isMinActive && isMaxActive) {
+                                                // Both set - show range
+                                                text = range.isCurrency
+                                                    ? `${range.unit}${minVal} - ${range.unit}${maxVal}`
+                                                    : `${minVal} - ${maxVal}${range.unit}`;
+                                            } else if (isMinActive) {
+                                                // Only min set
+                                                text = range.isCurrency
+                                                    ? `${range.unit}${minVal}+`
+                                                    : `${minVal}+${range.unit}`;
+                                            } else {
+                                                // Only max set
+                                                text = range.isCurrency
+                                                    ? `Up to ${range.unit}${maxVal}`
+                                                    : `Up to ${maxVal}${range.unit}`;
+                                            }
 
-                        <div className="right-box cl-rightBox">
-                          <div className="content-box">
-                            <h4 className="title car-title" title={elm.name}>
-                              <Link
-                                href={`/inventory-page-single-v1/${elm.id}`}
-                                className="car-title"
-                                title={elm.name}
-                              >
-                                {limitLetters(elm.name)}
-                              </Link>
-                            </h4>
+                                            return (
+                                                <div key={range.key} className="badge bg-white text-dark border p-2 rounded-pill d-flex align-items-center gap-2">
+                                                    <span className="fw-normal">{text}</span>
+                                                    <span
+                                                        className="ms-1 cursor-pointer"
+                                                        style={{ fontSize: '18px', lineHeight: '14px', cursor: 'pointer', opacity: 0.6 }}
+                                                        onClick={() => {
+                                                            // Clear range filter
+                                                            setRawFilters(prev => ({
+                                                                ...prev,
+                                                                [minKey]: '',
+                                                                [maxKey]: ''
+                                                            }));
+                                                            setPage(1);
+                                                        }}
+                                                    >×</span>
+                                                </div>
+                                            );
+                                        })}
 
-                            <div className="text mb-1">VIN No. {elm.vin || "-"}</div>
+                                        {/* Render Other Tags */}
+                                        {Object.entries(activeFilters).map(([key, value]) => {
+                                            // Skip if it's a range key (already handled above)
+                                            if (key.startsWith('min_') || key.startsWith('max_')) return null;
 
-                            <div className="inspection-sec mb-1">
-                              <div className="inspection-box">
-                                <div className="info">
-                                  <span>Mileage</span>
-                                  <small>{elm.odometer ? `${fmtNumber(elm.odometer)} Km` : "-"}</small>
+                                            // Arrays (Fuel, Body etc)
+                                            if (Array.isArray(value)) {
+                                                return value.map(item => {
+                                                    let label = item;
+                                                    if (key === 'current_doors' || key === 'doors') label = `${item} Doors`;
+                                                    if (key === 'passenger' || key === 'seats') label = `${item} Seats`;
+
+                                                    return (
+                                                        <div key={`${key}-${item}`} className="badge bg-white text-dark border p-2 rounded-pill d-flex align-items-center gap-2">
+                                                            <span className="fw-normal">{label}</span>
+                                                            <span
+                                                                className="ms-1 cursor-pointer"
+                                                                style={{ fontSize: '18px', lineHeight: '14px', cursor: 'pointer', opacity: 0.6 }}
+                                                                onClick={() => {
+                                                                    const newVal = rawFilters[key].filter(x => x !== item);
+                                                                    setRawFilters(prev => ({ ...prev, [key]: newVal }));
+                                                                    setPage(1);
+                                                                }}>×</span>
+                                                        </div>
+                                                    );
+                                                });
+                                            }
+
+                                            // Strings (Make, Model)
+                                            let label = value;
+                                            if (key === 'current_doors' || key === 'doors') label = `${value} Doors`;
+                                            if (key === 'passenger' || key === 'seats') label = `${value} Seats`;
+
+                                            return (
+                                                <div key={key} className="badge bg-white text-dark border p-2 rounded-pill d-flex align-items-center gap-2">
+                                                    <span className="fw-normal">{label}</span>
+                                                    <span
+                                                        className="ms-1 cursor-pointer"
+                                                        style={{ fontSize: '18px', lineHeight: '14px', cursor: 'pointer', opacity: 0.6 }}
+                                                        onClick={() => {
+                                                            const updates = { [key]: "" };
+                                                            if (key === "make") {
+                                                                updates.model = "";
+                                                                updates.model_detail = "";
+                                                            }
+                                                            if (key === "model") {
+                                                                updates.model_detail = "";
+                                                            }
+                                                            setRawFilters(prev => ({ ...prev, ...updates }));
+                                                            setPage(1);
+                                                        }}>×</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <button
+                                        onClick={clearAllFilters}
+                                        className="btn btn-link text-danger text-decoration-none p-0"
+                                        style={{ fontSize: '14px', fontWeight: 500 }}
+                                    >
+                                        Clear All
+                                    </button>
                                 </div>
-                              </div>
+                            )}
 
-                              <div className="inspection-box">
-                                <div className="info">
-                                  <span>Fuel Type</span>
-                                  <small>{elm.fuel_type || "-"}</small>
+                            {/* Listing Header */}
+                            <div className="text-box mb-4">
+                                <div className="text d-flex align-items-center gap-2">
+                                    {loading ? (
+                                        <span>Loading...</span>
+                                    ) : !loading && vehicles.length === 0 ? (
+                                        <span>No vehicles found.</span>
+                                    ) : (
+                                        <>
+                                            <span>
+                                                Showing {pagination?.from} to {pagination?.to} of {pagination?.total} vehicles
+                                            </span>
+                                            <button
+                                                type="button"
+                                                className="btn btn-light btn-sm"
+                                                disabled={!canPrev}
+                                                onClick={() => setPage(pagination.current_page - 1)}
+                                            >
+                                                ←
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="btn btn-light btn-sm"
+                                                disabled={!canNext}
+                                                onClick={() => setPage(pagination.current_page + 1)}
+                                            >
+                                                →
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
-                              </div>
 
-                              <div className="inspection-box">
-                                <div className="info">
-                                  <span>Transmission</span>
-                                  <small>{elm.transmission || "-"}</small>
-                                </div>
-                              </div>
-
-                              <div className="inspection-box">
-                                <div className="info">
-                                  <span>Year</span>
-                                  <small>{elm.year ?? "-"}</small>
-                                </div>
-                              </div>
+                                <form onSubmit={(e) => e.preventDefault()} className="d-flex">
+                                    <div className="form_boxes v3">
+                                        <SelectCompFunctional
+                                            options={SORT_OPTIONS.map(opt => opt.label)}
+                                            values={SORT_OPTIONS.map(opt => opt.value)}
+                                            selectedValue={sortbyOpt}
+                                            onChange={handleSortChange}
+                                        />
+                                    </div>
+                                    <div className="form_boxes v3 ms-3">
+                                        <small>Per Page</small>
+                                        <SelectCompFunctional
+                                            options={["20", "30", "50", "80", "100"]}
+                                            values={["20", "30", "50", "80", "100"]}
+                                            selectedValue={perPage.toString()}
+                                            onChange={(opt, val) => handlePerPageChange(val)}
+                                        />
+                                    </div>
+                                </form>
                             </div>
 
-                            {!!chips.length && (
-                              <ul className="ul-cotent">
-                                {chips.map((t, idx) => (
-                                  <li key={idx}>
-                                    <a href="#">{t}</a>
-                                  </li>
-                                ))}
-                              </ul>
+                            {/* Loading */}
+                            {loading && (
+                                <div className="text-center py-5">
+                                    <div className="spinner-border text-primary" role="status">
+                                        <span className="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
                             )}
-                          </div>
 
-                          <div className="content-box-two cl-contentBoxTwo">
-                            {elm.price !== null && <h4 className="title">${fmtNumber(elm.price)}</h4>}
+                            {/* No vehicles */}
+                            {!loading && vehicles.length === 0 && (
+                                <div className="py-5 text-center bg-light rounded">
+                                    <h4>No vehicles found</h4>
+                                    <button className="btn btn-primary mt-3" onClick={clearAllFilters}>
+                                        Clear All Filters
+                                    </button>
+                                </div>
+                            )}
 
-                            <span style={{ fontWeight: 700, color: badge.color }}>{badge.text}</span>
+                            {/* Vehicles */}
+                            {!loading && vehicles.length > 0 && (
+                                <>
+                                    <div className="cars-container">
+                                        {vehicles.map((elm, index) => {
+                                            const chips = buildChips(elm);
+                                            const badge = getStatusBadge(elm);
 
-                            <Link href={`/inventory-page-single-v1/${elm.id}`} className="button">
-                              View Details
-                            </Link>
-                          </div>
+                                            return (
+                                                <div key={elm?.id ?? index} className="service-block-thirteen cl-row-block">
+                                                    <div className="inner-box">
+                                                        <div className="image-box cl-leftBox">
+                                                            <figure className="image" style={{ height: "100%" }}>
+                                                                <Link href={`/inventory-page-single-v1/${elm.id}`}>
+                                                                    <CarImage
+                                                                        src={`${imageBase}/${elm.main_image}`}
+                                                                        alt={elm.name}
+                                                                        priority={index <= 2}
+                                                                    />
+                                                                </Link>
+                                                            </figure>
+                                                        </div>
+
+                                                        <div className="right-box cl-rightBox">
+                                                            <div className="content-box">
+                                                                <h4 className="title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                    <Link href={`/inventory-page-single-v1/${elm.id}`} title={elm.name}>
+                                                                        {elm.name}
+                                                                    </Link>
+                                                                </h4>
+
+                                                                <div className="text mb-1">VIN No. {elm.vin || "-"}</div>
+
+                                                                <div className="inspection-sec mb-1">
+                                                                    <div className="inspection-box gap-0">
+                                                                        <span className="icon"></span>
+                                                                        <div className="info">
+                                                                            <span>Mileage</span>
+                                                                            <small>{elm.odometer ? `${fmtNumber(elm.odometer)} Km` : "-"}</small>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className="inspection-box gap-0">
+                                                                        <span className="icon"></span>
+                                                                        <div className="info">
+                                                                            <span>Fuel Type</span>
+                                                                            <small>{elm.fuel_type || "-"}</small>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className="inspection-box gap-0">
+                                                                        <span className="icon"></span>
+                                                                        <div className="info">
+                                                                            <span>Transmission</span>
+                                                                            <small>{elm.transmission || "-"}</small>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className="inspection-box gap-0">
+                                                                        <span className="icon"></span>
+                                                                        <div className="info">
+                                                                            <span>Year</span>
+                                                                            <small>{elm.year ?? "-"}</small>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Dynamic Chips */}
+                                                                {!!chips.length && (
+                                                                    <ul className="ul-cotent">
+                                                                        {chips.map((t, idx) => (
+                                                                            <li key={idx}>
+                                                                                <a href="#">{t}</a>
+                                                                            </li>
+                                                                        ))}
+                                                                    </ul>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="content-box-two cl-contentBoxTwo d-flex flex-column justify-content-between mb-3">
+                                                                {elm.status?.toLowerCase() === 'sale' && elm.booking_status?.toLowerCase() === 'sale' ? (
+                                                                    <>
+                                                                        {elm.discount_price > 0 ? (
+                                                                            <div className="price-wrapper d-flex flex-column">
+                                                                                <span className="old-price text-muted text-decoration-line-through" style={{ fontSize: '0.85rem' }}>
+                                                                                    ${fmtNumber(elm.price)}
+                                                                                </span>
+                                                                                <h4 className="title">${fmtNumber(elm.final_price)}</h4>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <h4 className="title">${fmtNumber(elm.price)}</h4>
+                                                                        )}
+                                                                    </>
+                                                                ) : (
+                                                                    <h4 className="title" style={{ fontSize: '20px', color: badge.color }}>
+                                                                        {badge.text}
+                                                                    </h4>
+                                                                )}
+
+                                                                <Link href={`/inventory-page-single-v1/${elm.id}`} className="button">
+                                                                    View Details
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width={14} height={14} viewBox="0 0 14 14" fill="none">
+                                                                        <g clipPath="url(#clip0_989_6940)">
+                                                                            <path d="M13.6106 0H5.05509C4.84013 0 4.66619 0.173943 4.66619 0.388901C4.66619 0.603859 4.84013 0.777802 5.05509 0.777802H12.6719L0.113453 13.3362C-0.0384687 13.4881 -0.0384687 13.7342 0.113453 13.8861C0.189396 13.962 0.288927 14 0.388422 14C0.487917 14 0.587411 13.962 0.663391 13.8861L13.2218 1.3277V8.94447C13.2218 9.15943 13.3957 9.33337 13.6107 9.33337C13.8256 9.33337 13.9996 9.15943 13.9996 8.94447V0.388901C13.9995 0.173943 13.8256 0 13.6106 0Z" fill="#405FF2" />
+                                                                        </g>
+                                                                        <defs>
+                                                                            <clipPath id="clip0_989_6940">
+                                                                                <rect width={14} height={14} fill="white" />
+                                                                            </clipPath>
+                                                                        </defs>
+                                                                    </svg>
+                                                                </Link>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Pagination */}
+                                    {pagination && pagination.last_page > 1 && (
+                                        <div className="pagination-sec mt-4">
+                                            <Pagination
+                                                currentPage={pagination.current_page}
+                                                totalPages={pagination.last_page}
+                                                onPageChange={handlePageChange}
+                                            />
+                                            <div className="text mt-3">
+                                                Showing {pagination.from} to {pagination.to} of {pagination.total} vehicles
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {pagination && (
-                <div className="pagination-sec">
-                  <Pagination
-                    currentPage={pagination.current_page}
-                    totalPages={pagination.last_page}
-                    onPageChange={goToPage} // ✅ scroll + change page
-                  />
-                  <div className="text">
-                    Showing {pagination.from} to {pagination.to} of {pagination.total} vehicles
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
+                    </div >
+                </div >
+            </div >
+        </section >
+    );
 }

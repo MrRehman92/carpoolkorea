@@ -4,13 +4,15 @@ import { useEffect, useRef, useState } from "react";
 
 export default function SelectComponent({
   options = ["New York", "Los Vegas", "California"],
-  value, 
+  selectedValue, 
+  values = options,
   onChange,
 }) {
+  // console.log(values)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const ref = useRef(null);
   
-  const selectedOption = value || options[0];
+  const selectedOption = selectedValue || options[0];
 
   const handleClickOutside = (event) => {
     if (ref.current && !ref.current.contains(event.target)) {
@@ -25,10 +27,11 @@ export default function SelectComponent({
     };
   }, []);
 
-  const handleOptionSelect = (option) => {
+  const handleOptionSelect = (option, value) => {
     setIsDropdownOpen(false);
     if (onChange) {
-      onChange(option);
+      // console.log('option & value selected:', option, value);
+      onChange(option, value);
     }
   };
 
@@ -57,9 +60,11 @@ export default function SelectComponent({
               }
         }
       >
-        {options.map((option, index) => (
+        {options.map((option, index, arr) => (
+          // console.log(option, index, arr),
           <li
-            onClick={() => handleOptionSelect(option)}
+            // onClick={() => handleOptionSelect(option)}
+            onClick={() => handleOptionSelect(option, values[index])}
             key={index}
             className={`text-nowrap ${option === selectedOption ? "selected" : ""}`}
           >

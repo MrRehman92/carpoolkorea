@@ -34762,11 +34762,3 @@ li.nav-sub.mm-listitem .mm-listitem__btn {
 #slider-range-value1::after {
   margin: 0 2px;
 }
-
-.car-title {
-  display: block;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}

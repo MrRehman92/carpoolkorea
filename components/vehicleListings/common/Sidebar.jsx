@@ -1,23 +1,121 @@
 "use client";
-import React, { useState } from "react";
-import SelectComponent from "../../common/SelectComponent";
-import SearchableDropdown from "../../common/SearchSelect";
-import Image from "next/image";
+import React, { useState, useEffect } from "react";
+import SearchableDropdown from "../../common/SearchableDropdown";
 import Slider from "rc-slider";
-export default function Sidebar() {
+import "rc-slider/assets/index.css";
+import FilterInput from "./FilterInput";
+import { DEFAULT_BOUNDS } from "@/constants/filters";
 
-  const fmtNumber = (val) => {
-    const n = Number(val);
-    if (Number.isNaN(n)) return "0";
-    return n.toLocaleString("en-US");
+export default function Sidebar({ onFilterChange, makes = [], makeIds = [], filterOptions = {}, defaults = {}, filters }) {
+  const models = ["All Models", ...(filterOptions.models || [])];
+  const makesList = ["All Makes", ...(filterOptions.makes || makes || [])];
+  const modelDetailsList = ["All Details", ...(filterOptions.model_details || [])];
+
+  const years = filterOptions.years || [];
+  const minYearOptions = ["All Years", ...years.filter(y => !filters.max_year || y <= Number(filters.max_year))];
+  const maxYearOptions = ["All Years", ...years.filter(y => !filters.min_year || y >= Number(filters.min_year))];
+
+  // console.log("Sidebar filterOptions:", filterOptions);
+
+  const ranges = filterOptions.ranges || {};
+
+  // trigger update in parent
+  const updateParent = (newFilters) => {
+    onFilterChange(newFilters);
   };
 
-  const [price, setPrice] = useState([5000, 35000]);
-  const handlePrice = (value) => setPrice(value);
-  const [mileage, setMileage] = useState([5432, 95195]);
-  const handleMileage = (value) => setMileage(value);
-  const [engineVolume, setEngineVolume] = useState([1980, 6000]);
-  const handleEngineVolume = (value) => setEngineVolume(value);
+  const handleFilterUpdate = (key, value) => {
+    const newFilters = { ...filters, [key]: value };
+    // update model and model_detail on make change
+    if (key === "make") {
+      newFilters.model = "";
+      newFilters.model_detail = "";
+    }
+    // update model_detail on model change
+    if (key === "model") {
+      newFilters.model_detail = "";
+    }
+    updateParent(newFilters);
+  };
+
+  const handleRangeUpdate = (key, value) => {
+    if (value[0] > value[1]) return;
+    updateParent({
+      ...filters,
+      [`min_${key}`]: value[0],
+      [`max_${key}`]: value[1]
+    });
+  };
+
+  const handleInputChange = (key, value) => {
+    if (value === '') {
+      updateParent({ ...filters, [key]: '' });
+      return;
+    }
+    // Update with numeric value
+    const numValue = Number(value);
+    if (!isNaN(numValue)) {
+      updateParent({ ...filters, [key]: numValue });
+    }
+  };
+
+  const handleInputBlur = (key, value) => {
+    if (!value || value === '') {
+      updateParent({ ...filters, [key]: '' });
+      return;
+    }
+
+    const numValue = Number(value);
+    if (isNaN(numValue)) return;
+
+    // the active range / working range type
+    let rangeType, isMin;
+    if (key.includes('price')) {
+      rangeType = 'price';
+      isMin = key.startsWith('min_');
+    } else if (key.includes('mileage')) {
+      rangeType = 'mileage';
+      isMin = key.startsWith('min_');
+    } else if (key.includes('engine')) {
+      rangeType = 'engine_volume';
+      isMin = key.startsWith('min_');
+    } else {
+      return;
+    }
+
+    let finalValue = numValue;
+
+    // Ensure min <= max
+    if (isMin) {
+      const maxKey = `max_${rangeType}`;
+      const maxVal = filters[maxKey];
+      if (maxVal !== '' && maxVal !== undefined && finalValue > maxVal) {
+        finalValue = maxVal;
+      }
+    } else {
+      const minKey = `min_${rangeType}`;
+      const minVal = filters[minKey];
+      if (minVal !== '' && minVal !== undefined && finalValue < minVal) {
+        finalValue = minVal;
+      }
+    }
+
+    updateParent({ ...filters, [key]: finalValue });
+  };
+
+  const handleCheckboxUpdate = (category, value) => {
+    const current = filters[category] || [];
+    const updated = current.includes(value)
+      ? current.filter(item => item !== value)
+      : [...current, value];
+    updateParent({ ...filters, [category]: updated });
+  };
+
+  // Number formatter function
+  const fmtNumber = (val) => {
+    const n = Number(val);
+    return Number.isNaN(n) ? "0" : n.toLocaleString("en-US");
+  };
 
   return (
     <div className="wrap-sidebar-dk side-bar col-xl-3 col-md-12 col-sm-12">
@@ -48,50 +146,62 @@ export default function Sidebar() {
       <div className="inventory-sidebar">
         <div className="inventroy-widget widget-location">
           <div className="row">
-
-
             <div className="col-lg-12">
               <div className="form_boxes">
                 <label>Make</label>
-                {/* <SelectCompFunctional options={["Add Make", "Hyundai", "Kia", "BMW"]}
-                            values={["", "13", "14", "17"]}
-                            selectedValue={activeFilters.make}
-                            onChange={(val, opt) => handleFilterUpdate('make', val, opt)}
-                          /> */}
                 <SearchableDropdown
-                  options={["Add Make", "Hyundai", "Kia", "BMW"]}
-                  placeholder="Search categories..."
-                  onSelect={(val) => console.log("Category selected:", val)}
+                  options={makesList}
+                  defaultValue={filters.make || "All Makes"}
+                  onSelect={(val) => handleFilterUpdate("make", val === "All Makes" ? "" : val)}
                 />
               </div>
-
             </div>
 
             <div className="col-lg-12">
               <div className="form_boxes">
                 <label>Model</label>
-                <SelectComponent options={["Add Model", "New York", "Los Vegas", "California"]} />
+                <SearchableDropdown
+                  options={models}
+                  defaultValue={filters.model || "All Models"}
+                  onSelect={(val) => handleFilterUpdate("model", val === "All Models" ? "" : val)}
+                  disabled={!filters.make}
+                />
               </div>
             </div>
 
             <div className="col-lg-12">
               <div className="form_boxes">
                 <label>Model Detail</label>
-                <SelectComponent options={["Add Model Detail", "New York", "Los Vegas", "California"]} />
+                <SearchableDropdown
+                  options={modelDetailsList}
+                  defaultValue={filters.model_detail || "All Details"}
+                  onSelect={(val) => handleFilterUpdate("model_detail", val === "All Details" ? "" : val)}
+                  disabled={!filters.model}
+                />
               </div>
             </div>
 
-            <div className="col-lg-6">
+            <div className="col-lg-6 pe-2">
               <div className="form_boxes">
                 <label>Min year</label>
-                <SelectComponent options={["2019", "2020", "2021", "2022"]} />
+                <SearchableDropdown
+                  options={minYearOptions}
+                  defaultValue={filters.min_year || "All Years"}
+                  onSelect={(val) => handleFilterUpdate("min_year", val === "All Years" ? "" : val)}
+                  searchable={false}
+                />
               </div>
             </div>
 
-            <div className="col-lg-6">
+            <div className="col-lg-6 ps-2">
               <div className="form_boxes">
                 <label>Max year</label>
-                <SelectComponent options={["2023", "2020", "2021", "2022"]} />
+                <SearchableDropdown
+                  options={maxYearOptions}
+                  defaultValue={filters.max_year || "All Years"}
+                  onSelect={(val) => handleFilterUpdate("max_year", val === "All Years" ? "" : val)}
+                  searchable={false}
+                />
               </div>
             </div>
 
@@ -99,28 +209,42 @@ export default function Sidebar() {
               <div className="price-box">
                 <h6 className="title">Mileage</h6>
                 <form onSubmit={(e) => e.preventDefault()} className="row g-0">
-                  <div className="form-column col-lg-6">
-                    <div className="form_boxes">
+                  <div className="form-column col-lg-6 pe-2">
+                    <div className="form_boxes pe-2">
                       <label>Min</label>
-                      <div className="drop-menu">{fmtNumber(mileage[0])} km</div>
+                      <FilterInput
+                        placeholder={`${fmtNumber(ranges.min_mileage || 0)} km`}
+                        value={filters.min_mileage}
+                        onChange={(val) => handleInputChange('min_mileage', val)}
+                        onBlur={(val) => handleInputBlur('min_mileage', val)}
+                        suffix="km"
+                      />
                     </div>
                   </div>
-                  <div className="form-column v2 col-lg-6">
-                    <div className="form_boxes">
+                  <div className="form-column col-lg-6 ps-2">
+                    <div className="form_boxes pe-2">
                       <label>Max</label>
-                      <div className="drop-menu">{fmtNumber(mileage[1])} km</div>
+                      <FilterInput
+                        placeholder={`${fmtNumber(ranges.max_mileage || DEFAULT_BOUNDS.max_mileage)} km`}
+                        value={filters.max_mileage}
+                        onChange={(val) => handleInputChange('max_mileage', val)}
+                        onBlur={(val) => handleInputBlur('max_mileage', val)}
+                        suffix="km"
+                      />
                     </div>
                   </div>
                 </form>
 
                 <div className="widget-price">
                   <Slider
-                    formatLabel={() => ``}
                     range
-                    max={200000}
-                    min={0}
-                    defaultValue={mileage}
-                    onChange={(value) => handleMileage(value)}
+                    max={ranges.max_mileage || DEFAULT_BOUNDS.max_mileage}
+                    min={ranges.min_mileage || 0}
+                    value={[
+                      filters.min_mileage === '' || filters.min_mileage === undefined ? (ranges.min_mileage || 0) : filters.min_mileage,
+                      filters.max_mileage === '' || filters.max_mileage === undefined ? (ranges.max_mileage || DEFAULT_BOUNDS.max_mileage) : filters.max_mileage
+                    ]}
+                    onChange={(value) => handleRangeUpdate("mileage", value)}
                     id="mileage_slider"
                   />
                 </div>
@@ -131,29 +255,43 @@ export default function Sidebar() {
               <div className="price-box">
                 <h6 className="title">Price</h6>
                 <form onSubmit={(e) => e.preventDefault()} className="row g-0">
-                  <div className="form-column col-lg-6">
-                    <div className="form_boxes">
+                  <div className="form-column col-lg-6 pe-2">
+                    <div className="form_boxes pe-2">
                       <label>Min price</label>
-                      <div className="drop-menu">${fmtNumber(price[0])}</div>
+                      <FilterInput
+                        placeholder={`$${fmtNumber(ranges.min_price || 0)}`}
+                        value={filters.min_price}
+                        onChange={(val) => handleInputChange('min_price', val)}
+                        onBlur={(val) => handleInputBlur('min_price', val)}
+                        prefix="$"
+                      />
                     </div>
                   </div>
-                  <div className="form-column v2 col-lg-6">
-                    <div className="form_boxes">
+                  <div className="form-column col-lg-6 ps-2">
+                    <div className="form_boxes pe-2">
                       <label>Max price</label>
-                      <div className="drop-menu">${fmtNumber(price[1])}</div>
+                      <FilterInput
+                        placeholder={`$${fmtNumber(ranges.max_price || DEFAULT_BOUNDS.max_price)}`}
+                        value={filters.max_price}
+                        onChange={(val) => handleInputChange('max_price', val)}
+                        onBlur={(val) => handleInputBlur('max_price', val)}
+                        prefix="$"
+                      />
                     </div>
                   </div>
                 </form>
 
                 <div className="widget-price">
                   <Slider
-                    formatLabel={() => ``}
                     range
-                    max={50000}
-                    min={0}
-                    defaultValue={price}
-                    onChange={(value) => handlePrice(value)}
-                    id="slider"
+                    max={ranges.max_price || DEFAULT_BOUNDS.max_price}
+                    min={ranges.min_price || 0}
+                    value={[
+                      filters.min_price === '' || filters.min_price === undefined ? (ranges.min_price || 0) : filters.min_price,
+                      filters.max_price === '' || filters.max_price === undefined ? (ranges.max_price || DEFAULT_BOUNDS.max_price) : filters.max_price
+                    ]}
+                    onChange={(value) => handleRangeUpdate("price", value)}
+                    id="price_slider"
                   />
                 </div>
               </div>
@@ -162,28 +300,20 @@ export default function Sidebar() {
             <div className="col-lg-12">
               <div className="categories-box border-none-bottom">
                 <h6 className="title accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fuelType" aria-expanded="false" aria-controls="fuelType">
-                  Fuel Type</h6>
+                  Fuel Type
+                </h6>
                 <div id="fuelType" className="cheak-box accordion-collapse collapse">
-                  <label className="contain">
-                    Diesel (1,456)
-                    <input type="checkbox" defaultChecked="checked" />
-                    <span className="checkmark" />
-                  </label>
-                  <label className="contain">
-                    Petrol (1,456)
-                    <input type="checkbox" />
-                    <span className="checkmark" />
-                  </label>
-                  <label className="contain">
-                    Hybird (1,456)
-                    <input type="checkbox" />
-                    <span className="checkmark" />
-                  </label>
-                  <label className="contain">
-                    Electric (1,456)
-                    <input type="checkbox" />
-                    <span className="checkmark" />
-                  </label>
+                  {(filterOptions.fuel_types || []).map((fuel) => (
+                    <label key={fuel} className="contain">
+                      {fuel}
+                      <input
+                        type="checkbox"
+                        checked={filters.fuel_types?.includes(fuel)}
+                        onChange={() => handleCheckboxUpdate("fuel_types", fuel)}
+                      />
+                      <span className="checkmark" />
+                    </label>
+                  ))}
                 </div>
               </div>
             </div>
@@ -191,33 +321,20 @@ export default function Sidebar() {
             <div className="col-lg-12">
               <div className="categories-box border-none-bottom">
                 <h6 className="title accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#vehicleType" aria-expanded="false" aria-controls="vehicleType">
-                  Vehicle Type</h6>
+                  Vehicle Type
+                </h6>
                 <div id="vehicleType" className="cheak-box accordion-collapse collapse">
-                  <label className="contain">
-                    SUV (1,456)
-                    <input type="checkbox" defaultChecked="checked" />
-                    <span className="checkmark" />
-                  </label>
-                  <label className="contain">
-                    Sedan (1,456)
-                    <input type="checkbox" />
-                    <span className="checkmark" />
-                  </label>
-                  <label className="contain">
-                    Hatchback (1,456)
-                    <input type="checkbox" />
-                    <span className="checkmark" />
-                  </label>
-                  <label className="contain">
-                    Coupe (1,456)
-                    <input type="checkbox" />
-                    <span className="checkmark" />
-                  </label>
-                  <label className="contain">
-                    Convertible (1,456)
-                    <input type="checkbox" defaultChecked="checked" />
-                    <span className="checkmark" />
-                  </label>
+                  {(filterOptions.vehicle_types || []).map((type) => (
+                    <label key={type} className="contain">
+                      {type}
+                      <input
+                        type="checkbox"
+                        checked={filters.vehicle_type?.includes(type)}
+                        onChange={() => handleCheckboxUpdate("vehicle_type", type)}
+                      />
+                      <span className="checkmark" />
+                    </label>
+                  ))}
                 </div>
               </div>
             </div>
@@ -225,66 +342,41 @@ export default function Sidebar() {
             <div className="col-lg-12">
               <div className="categories-box border-none-bottom">
                 <h6 className="title accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#transmission" aria-expanded="false" aria-controls="transmission">
-                  Transmission</h6>
+                  Transmission
+                </h6>
                 <div id="transmission" className="cheak-box accordion-collapse collapse">
-                  <label className="contain">
-                    Automatic (1,456)
-                    <input type="checkbox" defaultChecked="checked" />
-                    <span className="checkmark" />
-                  </label>
-                  <label className="contain">
-                    Manual (1,456)
-                    <input type="checkbox" />
-                    <span className="checkmark" />
-                  </label>
-                  <label className="contain">
-                    CVT (1,456)
-                    <input type="checkbox" />
-                    <span className="checkmark" />
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div className="col-lg-12">
-              <div className="categories-box border-none-bottom">
-                <h6 className="title accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#driveType" aria-expanded="false" aria-controls="driveType">
-                  Drive Type</h6>
-                <div id="driveType" className="cheak-box accordion-collapse collapse">
-                  <label className="contain">
-                    Front 2WD
-                    <input type="checkbox" defaultChecked="checked" />
-                    <span className="checkmark" />
-                  </label>
-                  <label className="contain">
-                    4 Wheel Drive
-                    <input type="checkbox" />
-                    <span className="checkmark" />
-                  </label>
+                  {(filterOptions.transmissions || []).map((trans) => (
+                    <label key={trans} className="contain">
+                      {trans}
+                      <input
+                        type="checkbox"
+                        checked={filters.transmission?.includes(trans)}
+                        onChange={() => handleCheckboxUpdate("transmission", trans)}
+                      />
+                      <span className="checkmark" />
+                    </label>
+                  ))}
                 </div>
               </div>
             </div>
 
             <div className="col-lg-12">
               <div className="categories-box">
-                <h6 className="title accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#passenger" aria-expanded="false" aria-controls="passenger">
-                  No. of Passenger</h6>
-                <div id="passenger" className="cheak-box accordion-collapse collapse">
-                  <label className="contain">
-                    5
-                    <input type="checkbox" defaultChecked="checked" />
-                    <span className="checkmark" />
-                  </label>
-                  <label className="contain">
-                    7
-                    <input type="checkbox" />
-                    <span className="checkmark" />
-                  </label>
-                  <label className="contain">
-                    9
-                    <input type="checkbox" />
-                    <span className="checkmark" />
-                  </label>
+                <h6 className="title accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#driveType" aria-expanded="false" aria-controls="driveType">
+                  Drive Type
+                </h6>
+                <div id="driveType" className="cheak-box accordion-collapse collapse">
+                  {(filterOptions.drive_types || []).map((drive) => (
+                    <label key={drive} className="contain">
+                      {drive}
+                      <input
+                        type="checkbox"
+                        checked={filters.drive_type?.includes(drive)}
+                        onChange={() => handleCheckboxUpdate("drive_type", drive)}
+                      />
+                      <span className="checkmark" />
+                    </label>
+                  ))}
                 </div>
               </div>
             </div>
@@ -293,28 +385,42 @@ export default function Sidebar() {
               <div className="price-box">
                 <h6 className="title">Engine Volume</h6>
                 <form onSubmit={(e) => e.preventDefault()} className="row g-0">
-                  <div className="form-column col-lg-6">
-                    <div className="form_boxes">
+                  <div className="form-column col-lg-6 pe-2">
+                    <div className="form_boxes pe-2">
                       <label>From</label>
-                      <div className="drop-menu">{fmtNumber(engineVolume[0])}</div>
+                      <FilterInput
+                        placeholder={`${fmtNumber(ranges.min_engine_volume || 0)} cc`}
+                        value={filters.min_engine_volume}
+                        onChange={(val) => handleInputChange('min_engine_volume', val)}
+                        onBlur={(val) => handleInputBlur('min_engine_volume', val)}
+                        suffix="cc"
+                      />
                     </div>
                   </div>
-                  <div className="form-column v2 col-lg-6">
-                    <div className="form_boxes">
+                  <div className="form-column col-lg-6 ps-2">
+                    <div className="form_boxes pe-2">
                       <label>To</label>
-                      <div className="drop-menu">{fmtNumber(engineVolume[1])}</div>
+                      <FilterInput
+                        placeholder={`${fmtNumber(ranges.max_engine_volume || DEFAULT_BOUNDS.max_engine_volume)} cc`}
+                        value={filters.max_engine_volume}
+                        onChange={(val) => handleInputChange('max_engine_volume', val)}
+                        onBlur={(val) => handleInputBlur('max_engine_volume', val)}
+                        suffix="cc"
+                      />
                     </div>
                   </div>
                 </form>
 
                 <div className="widget-price">
                   <Slider
-                    formatLabel={() => ``}
                     range
-                    max={10000}
-                    min={0}
-                    defaultValue={engineVolume}
-                    onChange={(value) => handleEngineVolume(value)}
+                    max={ranges.max_engine_volume || DEFAULT_BOUNDS.max_engine_volume}
+                    min={ranges.min_engine_volume || 0}
+                    value={[
+                      filters.min_engine_volume === '' || filters.min_engine_volume === undefined ? (ranges.min_engine_volume || 0) : filters.min_engine_volume,
+                      filters.max_engine_volume === '' || filters.max_engine_volume === undefined ? (ranges.max_engine_volume || DEFAULT_BOUNDS.max_engine_volume) : filters.max_engine_volume
+                    ]}
+                    onChange={(value) => handleRangeUpdate("engine_volume", value)}
                     id="engVolSlider"
                   />
                 </div>
@@ -322,21 +428,50 @@ export default function Sidebar() {
             </div>
 
             <div className="col-lg-12">
+              <div className="categories-box border-none-bottom">
+                <h6 className="title accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#passenger" aria-expanded="false" aria-controls="passenger">
+                  Seats
+                </h6>
+                <div id="passenger" className="cheak-box accordion-collapse collapse">
+                  {(filterOptions.passengers || []).map((p) => (
+                    <label key={p} className="contain">
+                      {p} Seats
+                      <input
+                        type="checkbox"
+                        checked={filters.passenger?.includes(p)}
+                        onChange={() => handleCheckboxUpdate("passenger", p)}
+                      />
+                      <span className="checkmark" />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="col-lg-12">
               <div className="form_boxes">
                 <label>Exterior Color</label>
-                <SelectComponent options={["Blue", "New York", "Los Vegas", "California"]} />
+                <SearchableDropdown
+                  options={["All Colors", ...(filterOptions.exterior_colors || [])]}
+                  defaultValue={filters.exterior_color || "All Colors"}
+                  onSelect={(val) => handleFilterUpdate("exterior_color", val === "All Colors" ? "" : val)}
+                />
               </div>
             </div>
 
             <div className="col-lg-12">
               <div className="form_boxes">
                 <label>Doors</label>
-                <SelectComponent options={["3", "New York", "Los Vegas", "California"]} />
+                <SearchableDropdown
+                  options={["All", ...(filterOptions.doors || []).map(d => d.toString())]}
+                  defaultValue={filters.doors?.toString() || "All"}
+                  onSelect={(val) => handleFilterUpdate("doors", val === "All" ? "" : val)}
+                />
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 }
