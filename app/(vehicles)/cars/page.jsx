@@ -4,9 +4,39 @@ import Header from "@/components/headers/Header";
 import React from "react";
 
 export const metadata = {
-  title: "Inventory Sidebar Rows || Boxcar - React Nextjs Car Template",
-  description: "Boxcar - React Nextjs Car Template",
+  title: "Search used cars from Korea",
+  description:
+    "Korean used cars for sale. Carpool Korea is the safest & cheapest way to buy used cars from Korea.",
+
+  alternates: {
+    canonical: "/cars",
+  },
+
+  openGraph: {
+    title: "Search used cars from Korea",
+    description:
+      "Korean used cars for sale. Carpool Korea is the safest & cheapest way to buy used cars from Korea.",
+    url: "/cars",
+    type: "website",
+    images: [
+      {
+        url: "/assets/picture/home_banner.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Carpool Korea - Korean used cars",
+      },
+    ],
+  },
+
+  twitter: {
+    card: "summary_large_image",
+    title: "Search used cars from Korea",
+    description:
+      "Korean used cars for sale. Carpool Korea is the safest & cheapest way to buy used cars from Korea.",
+    images: ["/assets/picture/home_banner.jpg"],
+  },
 };
+
 export default function InventorySidebarRowsPage() {
   return (
     <>

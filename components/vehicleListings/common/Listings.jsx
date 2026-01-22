@@ -259,7 +259,7 @@ export default function Listings({
                 ]);
 
                 if (makesRes?.data) {
-                    const make = makesRes.data.map(item => item.name);
+                    const make = makesRes.data.map(item => ({ name: item.name, count: item.count }));
                     const makeId = makesRes.data.map(item => item.id);
                     setMakes(make);
                     setMakeIds(makeId);
@@ -432,8 +432,8 @@ export default function Listings({
 
                                             if (!isMinActive && !isMaxActive) return null;
 
-                                            const minVal = isMinActive ? fmtNumber(rawFilters[minKey]) : null;
-                                            const maxVal = isMaxActive ? fmtNumber(rawFilters[maxKey]) : null;
+                                            const minVal = isMinActive ? (range.key !== 'year' ? fmtNumber(rawFilters[minKey]) : rawFilters[minKey]) : null;
+                                            const maxVal = isMaxActive ? (range.key !== 'year' ? fmtNumber(rawFilters[maxKey]) : rawFilters[maxKey]) : null;
 
                                             let text;
                                             if (isMinActive && isMaxActive) {
