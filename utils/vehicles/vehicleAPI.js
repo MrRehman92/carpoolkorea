@@ -11,12 +11,12 @@ export const getCarMakes = async () => {
   }
 };
 
-export const getFilterOptions = async (filters = {}) => {
+export const getFilterOptions = async (filters = {}, endpoint = "cars") => {
   try {
-    const res = await api.get('cars/filter-options', { params: filters });
+    const res = await api.get(`${endpoint}/filter-options`, { params: filters });
     return res.data;
   } catch (error) {
-    console.error("Failed to fetch filter options:", error);
+    console.error(`Failed to fetch filter options for ${endpoint}:`, error);
     return { success: false, data: {} };
   }
 };

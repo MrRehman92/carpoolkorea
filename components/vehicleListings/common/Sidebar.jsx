@@ -6,10 +6,23 @@ import "rc-slider/assets/index.css";
 import FilterInput from "./FilterInput";
 import { DEFAULT_BOUNDS } from "@/constants/filters";
 
-export default function Sidebar({ onFilterChange, makes = [], makeIds = [], filterOptions = {}, defaults = {}, filters }) {
-  const models = ["All Models", ...(filterOptions.models || [])];
-  const makesList = ["All Makes", ...(filterOptions.makes || makes || [])];
-  const modelDetailsList = ["All Details", ...(filterOptions.model_details || [])];
+export default function Sidebar({ onFilterChange, makes = [], makeIds = [], filterOptions = {}, defaults = {}, filters, hiddenFilters = [], endpoint }) {
+  // Helper to sum counts
+  const getSum = (arr) => (arr || []).reduce((acc, curr) => acc + (curr.count || 0), 0);
+
+  // console.log(endpoint)
+  const _models = filterOptions.models || [];
+  const _makes = filterOptions.makes || makes || [];
+  const _details = filterOptions.model_details || [];
+  const counts = filterOptions.counts || {};
+
+  const allMakesCount = counts.total_cars || getSum(_makes);
+  const allModelsCount = counts.total_make_cars || (filters.make ? 0 : allMakesCount);
+  const allDetailsCount = counts.total_model_cars || (filters.model ? 0 : allModelsCount);
+
+  const models = [{ name: "All Models", count: filters.make ? (counts.total_make_cars || 0) : allMakesCount }, ..._models];
+  const makesList = [{ name: "All Makes", count: allMakesCount }, ..._makes];
+  const modelDetailsList = [{ name: "All Details", count: filters.model ? (counts.total_model_cars || 0) : (filters.make ? (counts.total_make_cars || 0) : allMakesCount) }, ..._details];
 
   const years = filterOptions.years || [];
   const minYearOptions = ["All Years", ...years.filter(y => !filters.max_year || y <= Number(filters.max_year))];
@@ -28,6 +41,7 @@ export default function Sidebar({ onFilterChange, makes = [], makeIds = [], filt
     const newFilters = { ...filters, [key]: value };
     // update model and model_detail on make change
     if (key === "make") {
+      console.log("make changed", value, key);
       newFilters.model = "";
       newFilters.model_detail = "";
     }
@@ -169,17 +183,48 @@ export default function Sidebar({ onFilterChange, makes = [], makeIds = [], filt
               </div>
             </div>
 
-            <div className="col-lg-12">
-              <div className="form_boxes">
-                <label>Model Detail</label>
-                <SearchableDropdown
-                  options={modelDetailsList}
-                  defaultValue={filters.model_detail || "All Details"}
-                  onSelect={(val) => handleFilterUpdate("model_detail", val === "All Details" ? "" : val)}
-                  disabled={!filters.model}
-                />
+            {/* Cars: Model Detail */}
+            {!hiddenFilters.includes('model_detail') && (
+              <div className="col-lg-12">
+                <div className="form_boxes">
+                  <label>Model Detail</label>
+                  <SearchableDropdown
+                    options={modelDetailsList}
+                    defaultValue={filters.model_detail || "All Details"}
+                    onSelect={(val) => handleFilterUpdate("model_detail", val === "All Details" ? "" : val)}
+                    disabled={!filters.model}
+                  />
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Truck: Category */}
+            {filterOptions.categories?.length > 0 && !hiddenFilters.includes('category') && (
+              <div className="col-lg-12">
+                <div className="form_boxes">
+                  <label>Category</label>
+                  <SearchableDropdown
+                    options={["All Categories", ...filterOptions.categories]}
+                    defaultValue={filters.category || "All Categories"}
+                    onSelect={(val) => handleFilterUpdate("category", val === "All Categories" ? "" : val)}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Truck: Loading Weight */}
+            {filterOptions.loading_weights?.length > 0 && !hiddenFilters.includes('loading_weight') && (
+              <div className="col-lg-12">
+                <div className="form_boxes">
+                  <label>Loading Weight</label>
+                  <SearchableDropdown
+                    options={["All Weights", ...filterOptions.loading_weights]}
+                    defaultValue={filters.loading_weight || "All Weights"}
+                    onSelect={(val) => handleFilterUpdate("loading_weight", val === "All Weights" ? "" : val)}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="col-lg-6 pe-2">
               <div className="form_boxes">
@@ -297,156 +342,216 @@ export default function Sidebar({ onFilterChange, makes = [], makeIds = [], filt
               </div>
             </div>
 
-            <div className="col-lg-12">
-              <div className="categories-box border-none-bottom">
-                <h6 className="title accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fuelType" aria-expanded="false" aria-controls="fuelType">
-                  Fuel Type
-                </h6>
-                <div id="fuelType" className="cheak-box accordion-collapse collapse">
-                  {(filterOptions.fuel_types || []).map((fuel) => (
-                    <label key={fuel} className="contain">
-                      {fuel}
-                      <input
-                        type="checkbox"
-                        checked={filters.fuel_types?.includes(fuel)}
-                        onChange={() => handleCheckboxUpdate("fuel_types", fuel)}
-                      />
-                      <span className="checkmark" />
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="col-lg-12">
-              <div className="categories-box border-none-bottom">
-                <h6 className="title accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#vehicleType" aria-expanded="false" aria-controls="vehicleType">
-                  Vehicle Type
-                </h6>
-                <div id="vehicleType" className="cheak-box accordion-collapse collapse">
-                  {(filterOptions.vehicle_types || []).map((type) => (
-                    <label key={type} className="contain">
-                      {type}
-                      <input
-                        type="checkbox"
-                        checked={filters.vehicle_type?.includes(type)}
-                        onChange={() => handleCheckboxUpdate("vehicle_type", type)}
-                      />
-                      <span className="checkmark" />
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="col-lg-12">
-              <div className="categories-box border-none-bottom">
-                <h6 className="title accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#transmission" aria-expanded="false" aria-controls="transmission">
-                  Transmission
-                </h6>
-                <div id="transmission" className="cheak-box accordion-collapse collapse">
-                  {(filterOptions.transmissions || []).map((trans) => (
-                    <label key={trans} className="contain">
-                      {trans}
-                      <input
-                        type="checkbox"
-                        checked={filters.transmission?.includes(trans)}
-                        onChange={() => handleCheckboxUpdate("transmission", trans)}
-                      />
-                      <span className="checkmark" />
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="col-lg-12">
-              <div className="categories-box">
-                <h6 className="title accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#driveType" aria-expanded="false" aria-controls="driveType">
-                  Drive Type
-                </h6>
-                <div id="driveType" className="cheak-box accordion-collapse collapse">
-                  {(filterOptions.drive_types || []).map((drive) => (
-                    <label key={drive} className="contain">
-                      {drive}
-                      <input
-                        type="checkbox"
-                        checked={filters.drive_type?.includes(drive)}
-                        onChange={() => handleCheckboxUpdate("drive_type", drive)}
-                      />
-                      <span className="checkmark" />
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="col-lg-12">
-              <div className="price-box">
-                <h6 className="title">Engine Volume</h6>
-                <form onSubmit={(e) => e.preventDefault()} className="row g-0">
-                  <div className="form-column col-lg-6 pe-2">
-                    <div className="form_boxes pe-2">
-                      <label>From</label>
-                      <FilterInput
-                        placeholder={`${fmtNumber(ranges.min_engine_volume || 0)} cc`}
-                        value={filters.min_engine_volume}
-                        onChange={(val) => handleInputChange('min_engine_volume', val)}
-                        onBlur={(val) => handleInputBlur('min_engine_volume', val)}
-                        suffix="cc"
-                      />
-                    </div>
+            {(filterOptions.fuel_types?.length > 0) && !hiddenFilters.includes('fuel_type') && (
+              <div className="col-lg-12">
+                <div className="categories-box border-none-bottom">
+                  <h6 className="title accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fuelType" aria-expanded="false" aria-controls="fuelType">
+                    Fuel Type
+                  </h6>
+                  <div id="fuelType" className="cheak-box accordion-collapse collapse">
+                    {(filterOptions.fuel_types || []).map((fuel) => (
+                      <label key={fuel} className="contain">
+                        {fuel}
+                        <input
+                          type="checkbox"
+                          checked={filters.fuel_types?.includes(fuel)}
+                          onChange={() => handleCheckboxUpdate("fuel_types", fuel)}
+                        />
+                        <span className="checkmark" />
+                      </label>
+                    ))}
                   </div>
-                  <div className="form-column col-lg-6 ps-2">
-                    <div className="form_boxes pe-2">
-                      <label>To</label>
-                      <FilterInput
-                        placeholder={`${fmtNumber(ranges.max_engine_volume || DEFAULT_BOUNDS.max_engine_volume)} cc`}
-                        value={filters.max_engine_volume}
-                        onChange={(val) => handleInputChange('max_engine_volume', val)}
-                        onBlur={(val) => handleInputBlur('max_engine_volume', val)}
-                        suffix="cc"
-                      />
-                    </div>
+                </div>
+              </div>
+            )}
+
+            {!hiddenFilters.includes('vehicle_type') && filterOptions.vehicle_types?.length > 0 && (
+              <div className="col-lg-12">
+                <div className="categories-box border-none-bottom">
+                  <h6 className="title accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#vehicleType" aria-expanded="false" aria-controls="vehicleType">
+                    Vehicle Type
+                  </h6>
+                  <div id="vehicleType" className="cheak-box accordion-collapse collapse">
+                    {(filterOptions.vehicle_types || []).map((type) => (
+                      <label key={type} className="contain">
+                        {type}
+                        <input
+                          type="checkbox"
+                          checked={filters.vehicle_type?.includes(type)}
+                          onChange={() => handleCheckboxUpdate("vehicle_type", type)}
+                        />
+                        <span className="checkmark" />
+                      </label>
+                    ))}
                   </div>
-                </form>
-
-                <div className="widget-price">
-                  <Slider
-                    range
-                    max={ranges.max_engine_volume || DEFAULT_BOUNDS.max_engine_volume}
-                    min={ranges.min_engine_volume || 0}
-                    value={[
-                      filters.min_engine_volume === '' || filters.min_engine_volume === undefined ? (ranges.min_engine_volume || 0) : filters.min_engine_volume,
-                      filters.max_engine_volume === '' || filters.max_engine_volume === undefined ? (ranges.max_engine_volume || DEFAULT_BOUNDS.max_engine_volume) : filters.max_engine_volume
-                    ]}
-                    onChange={(value) => handleRangeUpdate("engine_volume", value)}
-                    id="engVolSlider"
-                  />
                 </div>
               </div>
-            </div>
+            )}
 
-            <div className="col-lg-12">
-              <div className="categories-box border-none-bottom">
-                <h6 className="title accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#passenger" aria-expanded="false" aria-controls="passenger">
-                  Seats
-                </h6>
-                <div id="passenger" className="cheak-box accordion-collapse collapse">
-                  {(filterOptions.passengers || []).map((p) => (
-                    <label key={p} className="contain">
-                      {p} Seats
-                      <input
-                        type="checkbox"
-                        checked={filters.passenger?.includes(p)}
-                        onChange={() => handleCheckboxUpdate("passenger", p)}
-                      />
-                      <span className="checkmark" />
-                    </label>
-                  ))}
+            {(filterOptions.transmissions?.length > 0) && !hiddenFilters.includes('transmission') && (
+              <div className="col-lg-12">
+                <div className={`categories-box ${endpoint != 'buses' ? 'border-none-bottom' : ''}`}>
+                  <h6 className="title accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#transmission" aria-expanded="false" aria-controls="transmission">
+                    Transmission
+                  </h6>
+                  <div id="transmission" className="cheak-box accordion-collapse collapse">
+                    {(filterOptions.transmissions || []).map((trans) => (
+                      <label key={trans} className="contain">
+                        {trans}
+                        <input
+                          type="checkbox"
+                          checked={filters.transmission?.includes(trans)}
+                          onChange={() => handleCheckboxUpdate("transmission", trans)}
+                        />
+                        <span className="checkmark" />
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {(filterOptions.drive_types?.length > 0) && !hiddenFilters.includes('drive_type') && (
+              <div className="col-lg-12">
+                <div className="categories-box">
+                  <h6 className="title accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#driveType" aria-expanded="false" aria-controls="driveType">
+                    Drive Type
+                  </h6>
+                  <div id="driveType" className="cheak-box accordion-collapse collapse">
+                    {(filterOptions.drive_types || []).map((drive) => (
+                      <label key={drive} className="contain">
+                        {drive}
+                        <input
+                          type="checkbox"
+                          checked={filters.drive_type?.includes(drive)}
+                          onChange={() => handleCheckboxUpdate("drive_type", drive)}
+                        />
+                        <span className="checkmark" />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Truck: Axle Type */}
+            {filterOptions.axle_types?.length > 0 && !hiddenFilters.includes('axle_type') && (
+              <div className="col-lg-12">
+                <div className="categories-box border-none-bottom">
+                  <h6 className="title accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#axleType" aria-expanded="false" aria-controls="axleType">
+                    Axle Type
+                  </h6>
+                  <div id="axleType" className="cheak-box accordion-collapse collapse">
+                    {(filterOptions.axle_types || []).map((axle) => (
+                      <label key={axle} className="contain">
+                        {axle}
+                        <input
+                          type="checkbox"
+                          checked={filters.axle_type?.includes(axle)}
+                          onChange={() => handleCheckboxUpdate("axle_type", axle)}
+                        />
+                        <span className="checkmark" />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Truck: Cabin Type */}
+            {filterOptions.cabin_types?.length > 0 && !hiddenFilters.includes('cabin_type') && (
+              <div className="col-lg-12">
+                <div className="categories-box">
+                  <h6 className="title accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#cabinType" aria-expanded="false" aria-controls="cabinType">
+                    Cabin Type
+                  </h6>
+                  <div id="cabinType" className="cheak-box accordion-collapse collapse">
+                    {(filterOptions.cabin_types || []).map((cabin) => (
+                      <label key={cabin} className="contain">
+                        {cabin}
+                        <input
+                          type="checkbox"
+                          checked={filters.cabin_type?.includes(cabin)}
+                          onChange={() => handleCheckboxUpdate("cabin_type", cabin)}
+                        />
+                        <span className="checkmark" />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!hiddenFilters.includes('engine_volume') && (
+              <div className="col-lg-12">
+                <div className="price-box">
+                  <h6 className="title">Engine Volume</h6>
+                  <form onSubmit={(e) => e.preventDefault()} className="row g-0">
+                    <div className="form-column col-lg-6 pe-2">
+                      <div className="form_boxes pe-2">
+                        <label>From</label>
+                        <FilterInput
+                          placeholder={`${fmtNumber(ranges.min_engine_volume || 0)} cc`}
+                          value={filters.min_engine_volume}
+                          onChange={(val) => handleInputChange('min_engine_volume', val)}
+                          onBlur={(val) => handleInputBlur('min_engine_volume', val)}
+                          suffix="cc"
+                        />
+                      </div>
+                    </div>
+                    <div className="form-column col-lg-6 ps-2">
+                      <div className="form_boxes pe-2">
+                        <label>To</label>
+                        <FilterInput
+                          placeholder={`${fmtNumber(ranges.max_engine_volume || DEFAULT_BOUNDS.max_engine_volume)} cc`}
+                          value={filters.max_engine_volume}
+                          onChange={(val) => handleInputChange('max_engine_volume', val)}
+                          onBlur={(val) => handleInputBlur('max_engine_volume', val)}
+                          suffix="cc"
+                        />
+                      </div>
+                    </div>
+                  </form>
+
+                  <div className="widget-price">
+                    <Slider
+                      range
+                      max={ranges.max_engine_volume || DEFAULT_BOUNDS.max_engine_volume}
+                      min={ranges.min_engine_volume || 0}
+                      value={[
+                        filters.min_engine_volume === '' || filters.min_engine_volume === undefined ? (ranges.min_engine_volume || 0) : filters.min_engine_volume,
+                        filters.max_engine_volume === '' || filters.max_engine_volume === undefined ? (ranges.max_engine_volume || DEFAULT_BOUNDS.max_engine_volume) : filters.max_engine_volume
+                      ]}
+                      onChange={(value) => handleRangeUpdate("engine_volume", value)}
+                      id="engVolSlider"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {(!hiddenFilters.includes('passenger') && !hiddenFilters.includes('seats')) && (
+              <div className="col-lg-12">
+                <div className={`categories-box border-none-bottom `}>
+                  <h6 className="title accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#passenger" aria-expanded="false" aria-controls="passenger">
+                    Seats
+                  </h6>
+                  <div id="passenger" className="cheak-box accordion-collapse collapse">
+                    {(filterOptions.passengers || []).map((p) => (
+                      <label key={p} className="contain">
+                        {p} Seats
+                        <input
+                          type="checkbox"
+                          checked={filters.passenger?.includes(p)}
+                          onChange={() => handleCheckboxUpdate("passenger", p)}
+                        />
+                        <span className="checkmark" />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="col-lg-12">
               <div className="form_boxes">
@@ -459,16 +564,18 @@ export default function Sidebar({ onFilterChange, makes = [], makeIds = [], filt
               </div>
             </div>
 
-            <div className="col-lg-12">
-              <div className="form_boxes">
-                <label>Doors</label>
-                <SearchableDropdown
-                  options={["All", ...(filterOptions.doors || []).map(d => d.toString())]}
-                  defaultValue={filters.doors?.toString() || "All"}
-                  onSelect={(val) => handleFilterUpdate("doors", val === "All" ? "" : val)}
-                />
+            {(filterOptions.doors?.length > 0) && !hiddenFilters.includes('doors') && (
+              <div className="col-lg-12">
+                <div className="form_boxes">
+                  <label>Doors</label>
+                  <SearchableDropdown
+                    options={["All", ...(filterOptions.doors || []).map(d => d.toString())]}
+                    defaultValue={filters.doors?.toString() || "All"}
+                    onSelect={(val) => handleFilterUpdate("doors", val === "All" ? "" : val)}
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

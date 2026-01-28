@@ -243,23 +243,30 @@ export default function Listings({
     const isCarsOrSuvs = endpoint === 'cars' || endpoint === 'suvs';
     const showSidebar = true;
 
+    // Define hidden filters based on endpoint
+    const hiddenFilters = useMemo(() => {
+        if (endpoint === 'suvs') return ['vehicle_type'];
+        if (endpoint === 'buses') return ['model_detail', 'doors', 'drive_type', 'vehicle_type', 'axle_type', 'cabin_type', 'loading_weight', 'category'];
+        if (endpoint === 'trucks') return ['model_detail', 'doors', 'drive_type', 'vehicle_type', 'engine_volume', 'passenger'];
+        return [];
+    }, [endpoint]);
+
     // Fetch car makes and filter options
     useEffect(() => {
         const initData = async () => {
-
-            if (!isCarsOrSuvs) {
-                setIsFiltersLoaded(true);
-                return;
-            }
-
             try {
-                const [makesRes, optionsRes] = await Promise.all([
-                    getCarMakes(),
-                    getFilterOptions()
-                ]);
+                // Fetch makes only for cars/suvs if needed, or rely on filterOptions
+                const promises = [getFilterOptions({}, endpoint)];
+                if (isCarsOrSuvs) {
+                    promises.push(getCarMakes());
+                }
+
+                const results = await Promise.all(promises);
+                const optionsRes = results[0];
+                const makesRes = isCarsOrSuvs ? results[1] : null;
 
                 if (makesRes?.data) {
-                    const make = makesRes.data.map(item => ({ name: item.name, count: item.count }));
+                    const make = makesRes.data.map(item => item.name);
                     const makeId = makesRes.data.map(item => item.id);
                     setMakes(make);
                     setMakeIds(makeId);
@@ -278,6 +285,8 @@ export default function Listings({
                             max_mileage: r.max_mileage ?? 0,
                             min_engine_volume: r.min_engine_volume ?? 0,
                             max_engine_volume: r.max_engine_volume ?? 0,
+                            min_year: r.min_year ?? 0,
+                            max_year: r.max_year ?? 0,
                         });
                     }
                 }
@@ -302,17 +311,15 @@ export default function Listings({
 
     // update filter options based on current selections
     const updateFilterOptions = useCallback(async (filters) => {
-        if (!isCarsOrSuvs) return;
-
         try {
-            const res = await getFilterOptions(filters);
+            const res = await getFilterOptions(filters, endpoint);
             if (res?.success && res?.data) {
                 setFilterOptions(res.data);
             }
         } catch (error) {
             console.error("Failed to update filter options:", error);
         }
-    }, [isCarsOrSuvs]);
+    }, [endpoint]);
 
     // fetch vehicles
     const fetchVehiclesData = useCallback(
@@ -348,10 +355,10 @@ export default function Listings({
 
         const timer = setTimeout(() => {
             fetchVehiclesData(page, activeFilters);
-            if (isCarsOrSuvs) updateFilterOptions(activeFilters);
+            updateFilterOptions(activeFilters);
         }, 300);
         return () => clearTimeout(timer);
-    }, [page, activeFilters, fetchVehiclesData, updateFilterOptions, isFiltersLoaded, isCarsOrSuvs]);
+    }, [page, activeFilters, fetchVehiclesData, updateFilterOptions, isFiltersLoaded]);
 
     /* ---------------- HANDLERS ---------------- */
 
@@ -408,6 +415,8 @@ export default function Listings({
                         filterOptions={filterOptions}
                         defaults={defaults}
                         filters={rawFilters}
+                        hiddenFilters={hiddenFilters}
+                        endpoint={endpoint}
                     />
 
                     {/* Listing */}
@@ -484,6 +493,8 @@ export default function Listings({
                                                     let label = item;
                                                     if (key === 'current_doors' || key === 'doors') label = `${item} Doors`;
                                                     if (key === 'passenger' || key === 'seats') label = `${item} Seats`;
+                                                    if (key === 'axle_type') label = `Axle: ${item}`;
+                                                    if (key === 'cabin_type') label = `Cabin: ${item}`;
 
                                                     return (
                                                         <div key={`${key}-${item}`} className="badge bg-white text-dark border p-2 rounded-pill d-flex align-items-center gap-2">
@@ -505,6 +516,8 @@ export default function Listings({
                                             let label = value;
                                             if (key === 'current_doors' || key === 'doors') label = `${value} Doors`;
                                             if (key === 'passenger' || key === 'seats') label = `${value} Seats`;
+                                            if (key === 'category') label = `Category: ${value}`;
+                                            if (key === 'loading_weight') label = `Weight: ${value} Ton`;
 
                                             return (
                                                 <div key={key} className="badge bg-white text-dark border p-2 rounded-pill d-flex align-items-center gap-2">
@@ -710,7 +723,7 @@ export default function Listings({
                                                                     </h4>
                                                                 )}
 
-                                                                <Link href={`/inventory-page-single-v1/${elm.id}`} className="button">
+                                                                <Link href={`/inventory-page-single-v1/${elm.id}`} className="button" target="_blank">
                                                                     View Details
                                                                     <svg xmlns="http://www.w3.org/2000/svg" width={14} height={14} viewBox="0 0 14 14" fill="none">
                                                                         <g clipPath="url(#clip0_989_6940)">

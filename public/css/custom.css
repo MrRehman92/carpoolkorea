@@ -208,6 +208,11 @@ select:focus {
     margin-bottom: 20px;
 }
 
+/* SearchableDropdown */
+.cstm-dropdown-list-item:hover .cstm-dli-count span {
+    color: #7686e6 !important;
+}
+
 
 @media (max-width: 1200px) {
     .booking-info {
