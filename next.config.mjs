@@ -13,8 +13,15 @@ const nextConfig = {
         hostname: 'media.carpoolkr.com', // Specify the hostname
         pathname: "/assets/**",
       },
+      {
+        protocol: 'http',
+        hostname: 'ci.encar.com',
+        pathname: "/**",
+      },
     ],
   },
 };
+
+
 
 export default nextConfig;
