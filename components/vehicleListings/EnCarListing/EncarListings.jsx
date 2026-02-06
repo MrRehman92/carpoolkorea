@@ -1,13 +1,74 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+
 import Image from "next/image";
 import Link from "next/link";
 import Pagination from "../../common/NewPagination";
 import SelectCompFunctional from "../../common/SelectCompFunctional";
-import { getEncarVehicles } from "@/utils/vehicles/encarAPI";
+import EncarSidebar from "../EncarSidebar";
+import { getEncarVehicles, getEncarFilterOptions } from "@/utils/vehicles/encarAPI";
 
-// Helper to normalize Encar data
+const KO_TO_EN = {
+  fuel: {
+      "가솔린": "Gasoline",
+      "디젤": "Diesel",
+      "하이브리드": "Hybrid",
+      "전기": "Electric",
+      "LPG": "LPG",
+      "가스": "Gas",
+      "수소": "Hydrogen",
+
+      // combo fuel types
+      "가솔린+전기": "Hybrid (Gasoline + Electric)",
+      "디젤+전기": "Hybrid (Diesel + Electric)",
+      "LPG(일반인 구입)": "LPG (Open to Public)"
+    },
+
+  transmission: {
+    "오토": "Automatic",
+    "자동": "Automatic",
+    "수동": "Manual",
+    "CVT": "CVT",
+    "DCT": "DCT",
+  },
+  drive: {
+    "2WD": "2WD",
+    "4WD": "4WD",
+    "AWD": "AWD",
+    "전륜": "FWD",
+    "후륜": "RWD",
+  },
+  makers: {
+    "제네시스": "Genesis",
+    "현대": "Hyundai",
+    "기아": "Kia",
+    "쌍용": "KG Mobility",
+    "쉐보레": "Chevrolet",
+    "르노코리아": "Renault Korea",
+    "벤츠": "Mercedes-Benz",
+    "비엠더블유": "BMW",
+    "아우디": "Audi",
+    "폭스바겐": "Volkswagen",
+    "포르쉐": "Porsche",
+    "볼보": "Volvo",
+    "테슬라": "Tesla",
+    "토요타": "Toyota",
+    "혼다": "Honda",
+    "닛산": "Nissan",
+    "렉서스": "Lexus",
+  },
+};
+
+// Safe translate helper (only if it’s a string)
+const tr = (val, map) => {
+  if (!val) return val;
+  const s = String(val).trim();
+  return map[s] ?? s;
+};
+
+
+// Encar Data Normalizer
 const normalizeEncarVehicle = (v) => {
     const imgBase = process.env.NEXT_PUBLIC_ENCAR_IMG_SRC;
     let mainImage = "/images/resource/about-inner1-5.jpg";
@@ -19,21 +80,30 @@ const normalizeEncarVehicle = (v) => {
     }
 
     return {
-        id: v.Id,
-        title: `${v.FormYear || ''} ${v.Manufacturer || 'Manufacturer'} ${v.Model || 'Model'}`.trim(),
-        price: v.Price !== undefined ? v.Price : "Price",
-        year: v.FormYear || v.Year || "Year",
-        mileage: v.Mileage !== undefined ? v.Mileage : "Mileage",
-        fuel: v.FuelType || "Fuel Type",
-        transmission: v.Transmission || "Transmission",
-        img: mainImage,
-        vin: v.VIN || v.Vin || v.vin || "-",
+      id: v.Id,
 
-        engine_volume: v.EngineVolume || "Engine Volume",
-        drive_type: v.DriveType || "Drive Type",
-        vehicle_type: v.VehicleType || "Vehicle Type",
-        seats: v.Seats || "Seats",
+      // translate manufacturer/model pieces
+      title: `${v.FormYear || ""} ${tr(v.Manufacturer || "Manufacturer", KO_TO_EN.makers)} ${v.Model || "Model"}`
+        .replace(/\s+/g, " ")
+        .trim(),
+
+      price: v.Price !== undefined ? v.Price : "Price",
+      year: v.FormYear || v.Year || "Year",
+      mileage: v.Mileage !== undefined ? v.Mileage : "Mileage",
+
+      // translate these values
+      fuel: tr(v.FuelType || "Fuel Type", KO_TO_EN.fuel),
+      transmission: tr(v.Transmission || "Transmission", KO_TO_EN.transmission),
+      drive_type: tr(v.DriveType || "Drive Type", KO_TO_EN.drive),
+
+      img: mainImage,
+      vin: v.VIN || v.Vin || v.vin || "-",
+
+      engine_volume: v.EngineVolume || "Engine Volume",
+      vehicle_type: v.VehicleType || "Vehicle Type",
+      seats: v.Seats || "Seats",
     };
+
 };
 
 export default function EncarListings() {
@@ -45,6 +115,31 @@ export default function EncarListings() {
     const [sortbyOpt, setSortbyOpt] = useState('Sort By');
     const [sortbyVal, setSortbyVal] = useState('default');
 
+    // Filters State
+    const [filters, setFilters] = useState({
+        manufacturer: '',
+        model_group: '',
+        model: '',
+        badge_group: '',
+    });
+    const [filterOptions, setFilterOptions] = useState({
+        manufacturers: [],
+        modelGroups: [],
+        models: [],
+        badges: []
+    });
+
+    // Fetch filter options
+    useEffect(() => {
+        getEncarFilterOptions({
+            manufacturer: filters.manufacturer,
+            model_group: filters.model_group,
+            model: filters.model
+        }).then(opts => {
+            setFilterOptions(opts);
+        });
+    }, [filters.manufacturer, filters.model_group, filters.model]);
+
     // Load perPage from local storage
     useEffect(() => {
         const saved = localStorage.getItem("encar_per_page");
@@ -55,7 +150,7 @@ export default function EncarListings() {
 
     const fetchData = useCallback(async () => {
         setLoading(true);
-        const data = await getEncarVehicles(page, perPage, sortbyVal);
+        const data = await getEncarVehicles(page, perPage, sortbyVal, filters);
 
         if (data && data.data) {
             const norm = data.data.map(normalizeEncarVehicle);
@@ -66,7 +161,7 @@ export default function EncarListings() {
             setTotalRecords(0);
         }
         setLoading(false);
-    }, [page, perPage, sortbyVal]);
+    }, [page, perPage, sortbyVal, filters]);
 
     useEffect(() => {
         fetchData();
@@ -91,11 +186,30 @@ export default function EncarListings() {
         setPage(1);
     };
 
+    const handleFilterChange = (newFilters) => {
+        // Reset children when a parent changes
+        const updatedFilters = { ...filters, ...newFilters };
+
+        if (newFilters.manufacturer !== undefined) {
+            updatedFilters.model_group = '';
+            updatedFilters.model = '';
+            updatedFilters.badge_group = '';
+        } else if (newFilters.model_group !== undefined) {
+            updatedFilters.model = '';
+            updatedFilters.badge_group = '';
+        } else if (newFilters.model !== undefined) {
+            updatedFilters.badge_group = '';
+        }
+
+        setFilters(updatedFilters);
+        setPage(1);
+    };
+
     const totalPages = Math.ceil(totalRecords / perPage);
     const from = (page - 1) * perPage + 1;
     const to = Math.min(page * perPage, totalRecords);
 
-    // Helper for safe display
+    // Helper to format data
     const fmt = (val, suffix = "") => {
         if (val === undefined || val === null) return "-";
         if (typeof val === 'string' && ["Price", "Mileage", "Year", "Fuel Type", "Transmission", "Manufacturer", "Model", "Engine Volume", "Drive Type", "Vehicle Type", "Seats"].includes(val)) return val;
@@ -129,16 +243,11 @@ export default function EncarListings() {
                 </div>
 
                 <div className="row">
-                    <div className="col-xl-3 col-lg-4 col-md-12 col-sm-12">
-                        <div className="sidebar-content-three">
-                            <div className="sidebar-widget-three">
-                                <h5 className="widget-title">Encar Filters</h5>
-                                <div className="widget-content">
-                                    <p className="text-muted">////////////</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <EncarSidebar
+                        filters={filters}
+                        onFilterChange={handleFilterChange}
+                        options={filterOptions}
+                    />
 
                     {/* Listing */}
                     <div className="col-xl-9 col-lg-8 col-md-12 col-sm-12">
@@ -170,11 +279,11 @@ export default function EncarListings() {
                                                 ]}
                                                 values={[
                                                     "default",
-                                                    "price_asc",
-                                                    "price_desc",
-                                                    "mileage_asc",
-                                                    "mileage_desc",
-                                                    "year_desc"
+                                                    "priceasc",
+                                                    "pricedesc",
+                                                    "mileageasc",
+                                                    "mileagedesc",
+                                                    "year"
                                                 ]}
                                                 selectedValue={sortbyOpt}
                                                 onChange={handleSortChange}
