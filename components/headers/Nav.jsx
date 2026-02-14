@@ -250,6 +250,46 @@ export default function Nav() {
         </ul>
       </li>
 
+      {/* OTHERS */}
+      <li className="current-dropdown current">
+        <div className="nav-parent" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Link
+            href="/encar"
+            className={isMenuActive(carLinks) || pathname === "/encar" ? "menuActive" : ""}
+            style={topLinkStyle}
+          >
+            Encar
+          </Link>
+
+          <button
+            type="button"
+            aria-label="Open Cars menu"
+            className="nav-arrow"
+            onClick={toggleDropdown}
+            style={{
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              padding: 0,
+              lineHeight: 1,
+              color: "white",
+            }}
+          >
+            <i className="fa-solid fa-angle-down" />
+          </button>
+        </div>
+
+        <ul className="dropdown">
+          {carLinks.map((link, index) => (
+            <li key={index}>
+              <Link className={isMenuActive(link) ? "menuActive" : ""} href={link.href}>
+                {link.title}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </li>
+
       <li>
         {/* <Link className={pathname == "/events" ? "menuActive" : ""} href={`/events`}> */}
         <Link className={pathname == "/events" ? "menuActive" : ""} href={`/blog-list-03`}>

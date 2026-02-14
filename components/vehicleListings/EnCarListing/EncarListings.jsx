@@ -1,72 +1,12 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-
 import Image from "next/image";
 import Link from "next/link";
 import Pagination from "../../common/NewPagination";
 import SelectCompFunctional from "../../common/SelectCompFunctional";
-import EncarSidebar from "../EncarSidebar";
+import EncarSidebar from "./EncarSidebar";
 import { getEncarVehicles, getEncarFilterOptions } from "@/utils/vehicles/encarAPI";
-
-const KO_TO_EN = {
-  fuel: {
-      "가솔린": "Gasoline",
-      "디젤": "Diesel",
-      "하이브리드": "Hybrid",
-      "전기": "Electric",
-      "LPG": "LPG",
-      "가스": "Gas",
-      "수소": "Hydrogen",
-
-      // combo fuel types
-      "가솔린+전기": "Hybrid (Gasoline + Electric)",
-      "디젤+전기": "Hybrid (Diesel + Electric)",
-      "LPG(일반인 구입)": "LPG (Open to Public)"
-    },
-
-  transmission: {
-    "오토": "Automatic",
-    "자동": "Automatic",
-    "수동": "Manual",
-    "CVT": "CVT",
-    "DCT": "DCT",
-  },
-  drive: {
-    "2WD": "2WD",
-    "4WD": "4WD",
-    "AWD": "AWD",
-    "전륜": "FWD",
-    "후륜": "RWD",
-  },
-  makers: {
-    "제네시스": "Genesis",
-    "현대": "Hyundai",
-    "기아": "Kia",
-    "쌍용": "KG Mobility",
-    "쉐보레": "Chevrolet",
-    "르노코리아": "Renault Korea",
-    "벤츠": "Mercedes-Benz",
-    "비엠더블유": "BMW",
-    "아우디": "Audi",
-    "폭스바겐": "Volkswagen",
-    "포르쉐": "Porsche",
-    "볼보": "Volvo",
-    "테슬라": "Tesla",
-    "토요타": "Toyota",
-    "혼다": "Honda",
-    "닛산": "Nissan",
-    "렉서스": "Lexus",
-  },
-};
-
-// Safe translate helper (only if it’s a string)
-const tr = (val, map) => {
-  if (!val) return val;
-  const s = String(val).trim();
-  return map[s] ?? s;
-};
-
 
 // Encar Data Normalizer
 const normalizeEncarVehicle = (v) => {
@@ -76,34 +16,26 @@ const normalizeEncarVehicle = (v) => {
     if (v.Photos && v.Photos.length > 0) {
         mainImage = `${imgBase}${v.Photos[0].location}?impolicy=heightRate&rh=192&cw=320&ch=192&cg=Center&wtmk=https://ci.encar.com/wt_mark/w_mark_04.png&wtmkg=SouthEast&wtmkw=70&wtmkh=30&t=20251212092207`;
     } else if (v.Photo) {
-        mainImage = `${imgBase}${v.Photo}001.jpg?impolicy=heightRate&rh=192&cw=320&ch=192&cg=Center&wtmk=https://ci.encar.com/wt_mark/w_mark_04.png&wtmkg=SouthEast&wtmkw=70&wtmkh=30&t=20251212092207`;
+        mainImage = `${imgBase}${v.Photo}001.jpg`;
     }
 
     return {
-      id: v.Id,
+        id: v.Id,
+        title: `${v.FormYear || ''} ${v.Manufacturer || 'Manufacturer'} ${v.Model || 'Model'}`.trim(),
+        price: v.Price !== undefined ? v.Price : "Price",
+        year: v.FormYear || v.Year || "Year",
+        mileage: v.Mileage !== undefined ? v.Mileage : "Mileage",
+        fuel: v.FuelType || "Fuel Type",
+        transmission: v.Transmission || "Transmission",
+        img: mainImage,
+        vin: v.VIN || v.Vin || v.vin || "-",
+        badge: v.Badge || "",
 
-      // translate manufacturer/model pieces
-      title: `${v.FormYear || ""} ${tr(v.Manufacturer || "Manufacturer", KO_TO_EN.makers)} ${v.Model || "Model"}`
-        .replace(/\s+/g, " ")
-        .trim(),
-
-      price: v.Price !== undefined ? v.Price : "Price",
-      year: v.FormYear || v.Year || "Year",
-      mileage: v.Mileage !== undefined ? v.Mileage : "Mileage",
-
-      // translate these values
-      fuel: tr(v.FuelType || "Fuel Type", KO_TO_EN.fuel),
-      transmission: tr(v.Transmission || "Transmission", KO_TO_EN.transmission),
-      drive_type: tr(v.DriveType || "Drive Type", KO_TO_EN.drive),
-
-      img: mainImage,
-      vin: v.VIN || v.Vin || v.vin || "-",
-
-      engine_volume: v.EngineVolume || "Engine Volume",
-      vehicle_type: v.VehicleType || "Vehicle Type",
-      seats: v.Seats || "Seats",
+        engine_volume: v.EngineVolume || "Engine Volume",
+        drive_type: v.DriveType || "Drive Type",
+        vehicle_type: v.VehicleType || "Vehicle Type",
+        seats: v.Seats || "Seats",
     };
-
 };
 
 export default function EncarListings() {
@@ -114,6 +46,10 @@ export default function EncarListings() {
     const [totalRecords, setTotalRecords] = useState(0);
     const [sortbyOpt, setSortbyOpt] = useState('Sort By');
     const [sortbyVal, setSortbyVal] = useState('default');
+    const [langOpt, setLangOpt] = useState('Language: English');
+    const [isReady, setIsReady] = useState(false);
+
+    const fetchIdRef = React.useRef(0);
 
     // Filters State
     const [filters, setFilters] = useState({
@@ -121,53 +57,91 @@ export default function EncarListings() {
         model_group: '',
         model: '',
         badge_group: '',
+        badge: '',
+        badge_detail: '',
+        lang: 'en'
     });
     const [filterOptions, setFilterOptions] = useState({
         manufacturers: [],
         modelGroups: [],
         models: [],
-        badges: []
+        badgeGroups: [],
+        badges: [],
+        badgeDetails: []
     });
+
+    // Initial Load: Sync preferences from localStorage
+    useEffect(() => {
+        const savedPerPage = localStorage.getItem("encar_per_page");
+        if (savedPerPage) {
+            setPerPage(Number(savedPerPage));
+        }
+
+        const savedLang = localStorage.getItem("encar_lang") || 'en';
+        setFilters(prev => ({ ...prev, lang: savedLang }));
+
+        let label = 'Language: English';
+        if (savedLang === 'ko') label = 'Language: Korean';
+        else if (savedLang === 'ar') label = 'Language: Arabic';
+        setLangOpt(label);
+
+        setIsReady(true);
+    }, []);
 
     // Fetch filter options
     useEffect(() => {
+        if (!isReady) return;
+
         getEncarFilterOptions({
             manufacturer: filters.manufacturer,
             model_group: filters.model_group,
-            model: filters.model
+            model: filters.model,
+            badge_group: filters.badge_group,
+            badge: filters.badge,
+            lang: filters.lang
         }).then(opts => {
             setFilterOptions(opts);
         });
-    }, [filters.manufacturer, filters.model_group, filters.model]);
-
-    // Load perPage from local storage
-    useEffect(() => {
-        const saved = localStorage.getItem("encar_per_page");
-        if (saved) {
-            setPerPage(Number(saved));
-        }
-    }, []);
+    }, [isReady, filters.manufacturer, filters.model_group, filters.model, filters.badge_group, filters.badge, filters.lang]);
 
     const fetchData = useCallback(async () => {
-        setLoading(true);
-        const data = await getEncarVehicles(page, perPage, sortbyVal, filters);
+        if (!isReady) return;
 
-        if (data && data.data) {
-            const norm = data.data.map(normalizeEncarVehicle);
-            setVehicles(norm);
-            setTotalRecords(data.recordsTotal || 0);
-        } else {
-            setVehicles([]);
-            setTotalRecords(0);
+        const fetchId = ++fetchIdRef.current;
+        setLoading(true);
+
+        try {
+            const data = await getEncarVehicles(page, perPage, sortbyVal, filters);
+
+            if (fetchId !== fetchIdRef.current) return;
+
+            if (data && data.data) {
+                const norm = data.data.map(normalizeEncarVehicle);
+                setVehicles(norm);
+                setTotalRecords(data.recordsTotal || 0);
+            } else {
+                setVehicles([]);
+                setTotalRecords(0);
+            }
+        } catch (error) {
+            if (fetchId === fetchIdRef.current) {
+                setVehicles([]);
+                setTotalRecords(0);
+            }
+        } finally {
+            if (fetchId === fetchIdRef.current) {
+                setLoading(false);
+            }
         }
-        setLoading(false);
-    }, [page, perPage, sortbyVal, filters]);
+    }, [isReady, page, perPage, sortbyVal, filters]);
 
     useEffect(() => {
+        if (!isReady) return;
+
         fetchData();
         // Scroll to top
         window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, [fetchData]);
+    }, [isReady, fetchData]);
 
     const handlePageChange = (newPage) => {
         setPage(newPage);
@@ -194,11 +168,22 @@ export default function EncarListings() {
             updatedFilters.model_group = '';
             updatedFilters.model = '';
             updatedFilters.badge_group = '';
+            updatedFilters.badge = '';
+            updatedFilters.badge_detail = '';
         } else if (newFilters.model_group !== undefined) {
             updatedFilters.model = '';
             updatedFilters.badge_group = '';
+            updatedFilters.badge = '';
+            updatedFilters.badge_detail = '';
         } else if (newFilters.model !== undefined) {
             updatedFilters.badge_group = '';
+            updatedFilters.badge = '';
+            updatedFilters.badge_detail = '';
+        } else if (newFilters.badge_group !== undefined) {
+            updatedFilters.badge = '';
+            updatedFilters.badge_detail = '';
+        } else if (newFilters.badge !== undefined) {
+            updatedFilters.badge_detail = '';
         }
 
         setFilters(updatedFilters);
@@ -270,6 +255,26 @@ export default function EncarListings() {
                                         <div className="form_boxes v3 me-3">
                                             <SelectCompFunctional
                                                 options={[
+                                                    "Language: English",
+                                                    "Language: Korean",
+                                                    "Language: Arabic",
+                                                ]}
+                                                selectedValue={langOpt}
+                                                onChange={(val) => {
+                                                    setLangOpt(val);
+                                                    let newLang = 'en';
+                                                    if (val.includes("Korean")) newLang = 'ko';
+                                                    else if (val.includes("Arabic")) newLang = 'ar';
+
+                                                    localStorage.setItem("encar_lang", newLang);
+                                                    setFilters(prev => ({ ...prev, lang: newLang }));
+                                                    setPage(1);
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="form_boxes v3 me-3">
+                                            <SelectCompFunctional
+                                                options={[
                                                     "Sort By",
                                                     "Price: Low to High",
                                                     "Price: High to Low",
@@ -327,7 +332,7 @@ export default function EncarListings() {
                                                 <div className="inner-box">
                                                     <div className="image-box cl-leftBox">
                                                         <figure className="image" style={{ height: "100%" }}>
-                                                            <Link href="#">
+                                                            <Link href={`https://fem.encar.com/cars/detail/${elm.id}`} target="_blank" rel="noopener noreferrer">
                                                                 <Image
                                                                     src={elm.img}
                                                                     alt={elm.title}
@@ -346,7 +351,7 @@ export default function EncarListings() {
                                                     <div className="right-box cl-rightBox">
                                                         <div className="content-box">
                                                             <h4 className="title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                                <Link href="#" title={elm.title}>
+                                                                <Link href={`https://fem.encar.com/cars/detail/${elm.id}`} title={elm.title} target="_blank" rel="noopener noreferrer">
                                                                     {elm.title}
                                                                 </Link>
                                                             </h4>
@@ -399,10 +404,10 @@ export default function EncarListings() {
 
                                                         <div className="content-box-two cl-contentBoxTwo d-flex flex-column justify-content-between mb-3">
                                                             <h4 className="title">
-                                                                {typeof elm.price === 'number' ? `₩${fmt(elm.price)}` : elm.price}
+                                                                {typeof elm.price === 'number' ? <>₩ {fmt(elm.price / 100)} <small style={{ fontSize: '0.6em', fontWeight: 'normal' }}>Million</small></> : elm.price}
                                                             </h4>
 
-                                                            <Link href="#" className="button">
+                                                            <Link href={`https://fem.encar.com/cars/detail/${elm.id}`} className="button" target="_blank" rel="noopener noreferrer">
                                                                 View Details
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width={14} height={14} viewBox="0 0 14 14" fill="none">
                                                                     <path d="M13.6106 0H5.05509C4.84013 0 4.66619 0.173943 4.66619 0.388901C4.66619 0.603859 4.84013 0.777802 5.05509 0.777802H12.6719L0.113453 13.3362C-0.0384687 13.4881 -0.0384687 13.7342 0.113453 13.8861C0.189396 13.962 0.288927 14 0.388422 14C0.487917 14 0.587411 13.962 0.663391 13.8861L13.2218 1.3277V8.94447C13.2218 9.15943 13.3957 9.33337 13.6107 9.33337C13.8256 9.33337 13.9996 9.15943 13.9996 8.94447V0.388901C13.9995 0.173943 13.8256 0 13.6106 0Z" fill="#405FF2" />

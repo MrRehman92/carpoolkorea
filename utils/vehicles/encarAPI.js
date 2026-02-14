@@ -9,10 +9,10 @@ export const getEncarVehicles = async (page = 1, perPage = 20, sort = '', filter
             start: start,
             length: perPage,
             sort: sort,
-            ...filters // Spread filters: manufacturer, model_group, etc.
+            ...filters
         };
 
-        const res = await api.get('/encar/live', { params });
+        const res = await api.get('/encar/live', { params: { ...params, lang: filters.lang || 'en' } });
         return res.data;
     } catch (error) {
         console.error("Failed to fetch Encar vehicles:", error);
@@ -35,7 +35,9 @@ export const getEncarFilterOptions = async (params = {}) => {
             manufacturers: [],
             modelGroups: [],
             models: [],
-            badges: []
+            badgeGroups: [],
+            badges: [],
+            badgeDetails: []
         };
     }
 };
