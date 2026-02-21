@@ -30,11 +30,16 @@ const EncarSearchableDropdown = ({
     const getDisplayLabel = (val) => {
         if (selectedLabel) return selectedLabel;
         if (!val) return "";
+
+        if (!options || options.length === 0) return placeholder;
+
         const option = options.find(opt => {
             const optVal = typeof opt === 'object' ? opt[valueKey] : opt;
             return optVal === val;
         });
         if (option && typeof option === 'object') return option[displayKey];
+
+        // Fallback to val
         return val;
     };
 
@@ -69,10 +74,13 @@ const EncarSearchableDropdown = ({
             <div
                 className="select"
                 onClick={() => !disabled && setIsDropdownOpen(!isDropdownOpen)}
-                style={{ cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1 }}
+                style={{ cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                title={getDisplayLabel(selectedOption) || placeholder}
             >
-                <span>{getDisplayLabel(selectedOption) || placeholder}</span>
-                <i className={`fa ${isDropdownOpen ? "fa-angle-up" : "fa-angle-down"}`} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '5px' }}>
+                    {getDisplayLabel(selectedOption) || placeholder}
+                </span>
+                <i className={`fa ${isDropdownOpen ? "fa-angle-up" : "fa-angle-down"}`} style={{ flexShrink: 0 }} />
             </div>
 
             <div
@@ -145,20 +153,22 @@ const EncarSearchableDropdown = ({
                             const value = typeof elm === 'object' ? elm[valueKey] : elm;
 
                             const display = typeof elm === 'object' ? (
-                                <div className="cstm-dli-count d-flex justify-content-between align-items-center w-100">
-                                    <div className="d-flex flex-column text-start">
-                                        <span style={{ fontWeight: '500', color: '#333' }}>{elm[displayKey]}</span>
+                                <div className="cstm-dli-count d-flex justify-content-between align-items-center w-100" title={elm[displayKey]}>
+                                    <div className="d-flex flex-column text-start" style={{ overflow: 'hidden', flex: 1 }}>
+                                        <span style={{ fontWeight: '500', color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{elm[displayKey]}</span>
                                         {subLabelKey && elm[subLabelKey] && (
-                                            <span style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>
+                                            <span style={{ fontSize: '11px', color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                 {elm[subLabelKey]}
                                             </span>
                                         )}
                                     </div>
                                     {elm.count !== undefined && (
-                                        <span style={{ fontSize: '11px', color: '#888', background: '#f5f5f5', padding: '2px 6px', borderRadius: '10px', marginLeft: '8px' }}>{elm.count}</span>
+                                        <span style={{ fontSize: '11px', color: '#888', background: '#f5f5f5', padding: '2px 6px', borderRadius: '10px', marginLeft: '18px', flexShrink: 0 }}>{elm.count}</span>
                                     )}
                                 </div>
-                            ) : elm;
+                            ) : (
+                                <span title={elm} style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{elm}</span>
+                            );
 
                             return (
                                 <li

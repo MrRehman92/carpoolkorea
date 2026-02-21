@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const FilterInput = ({
+const RangeInput = ({
     value,
     onChange,
     onBlur,
@@ -51,4 +51,4 @@ const FilterInput = ({
     );
 };
 
-export default FilterInput;
+export default RangeInput;

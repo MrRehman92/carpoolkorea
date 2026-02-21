@@ -3,19 +3,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 const SearchableDropdown = ({
-  options = [],
+  options = ["", "", ""],
   placeholder = "Search...",
   onSelect,
   defaultValue = "",
   searchable = true,
-  disabled = false,
-  displayKey = "name",
-  valueKey = "name",
-  selectedLabel = ""
+  disabled = false
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedOption, setSelectedOption] = useState(defaultValue || "");
+  const [selectedOption, setSelectedOption] = useState(defaultValue || (options.length > 0 ? options[0] : ""));
 
   const dropdownRef = useRef(null);
 
@@ -26,28 +23,17 @@ const SearchableDropdown = ({
     }
   }, [defaultValue]);
 
-  const getDisplayLabel = (val) => {
-    if (selectedLabel) return selectedLabel;
-    if (!val) return "";
-    const option = options.find(opt => {
-      const optVal = typeof opt === 'object' ? opt[valueKey] : opt;
-      return optVal === val;
-    });
-    if (option && typeof option === 'object') return option[displayKey];
-    return val;
-  };
-
   const filteredOptions = options.filter((elm) => {
-    const label = typeof elm === 'object' ? elm[displayKey] : elm;
+    const label = typeof elm === 'object' ? elm.name : elm;
     return String(label).toLowerCase().includes(searchQuery.toLowerCase());
   });
 
   const handleSelect = (option) => {
-    const value = typeof option === 'object' ? option[valueKey] : option;
+    const value = typeof option === 'object' ? option.name : option;
     setSelectedOption(value);
     setIsDropdownOpen(false);
     setSearchQuery("");
-    if (onSelect) onSelect(value, option);
+    if (onSelect) onSelect(value);
   };
 
   // to Close
@@ -68,10 +54,13 @@ const SearchableDropdown = ({
       <div
         className="select"
         onClick={() => !disabled && setIsDropdownOpen(!isDropdownOpen)}
-        style={{ cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1 }}
+        style={{ cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+        title={selectedOption || placeholder}
       >
-        <span>{getDisplayLabel(selectedOption) || placeholder}</span>
-        <i className={`fa ${isDropdownOpen ? "fa-angle-up" : "fa-angle-down"}`} />
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '5px' }}>
+          {selectedOption || placeholder}
+        </span>
+        <i className={`fa ${isDropdownOpen ? "fa-angle-up" : "fa-angle-down"}`} style={{ flexShrink: 0 }} />
       </div>
 
       <div
@@ -140,28 +129,27 @@ const SearchableDropdown = ({
         >
           {filteredOptions.length > 0 ? (
             filteredOptions.map((elm, i) => {
-              const label = typeof elm === 'object' ? elm[displayKey] : elm;
-              const value = typeof elm === 'object' ? elm[valueKey] : elm;
+              const label = typeof elm === 'object' ? elm.name : elm;
               const display = typeof elm === 'object' ? (
-                <div className="cstm-dli-count d-flex justify-content-between align-items-center w-100">
-                  <span>{elm[displayKey]}</span>
-                  {elm.count !== undefined && (
-                    <span style={{ fontSize: '11px', color: '#888', background: '#f5f5f5', padding: '2px 6px', borderRadius: '10px' }}>{elm.count}</span>
-                  )}
+                <div className="cstm-dli-count d-flex justify-content-between align-items-center w-100" title={elm.name}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{elm.name}</span>
+                  <span style={{ fontSize: '11px', color: '#888', background: '#f5f5f5', padding: '2px 6px', borderRadius: '10px', flexShrink: 0, marginLeft: '18px' }}>{elm.count}</span>
                 </div>
-              ) : elm;
+              ) : (
+                <span title={elm} style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{elm}</span>
+              );
 
               return (
                 <li
                   key={i}
-                  className={`cstm-dropdown-list-item ${selectedOption === value ? "selected" : ""}`}
+                  className={`cstm-dropdown-list-item ${selectedOption === label ? "selected" : ""}`}
                   onClick={() => handleSelect(elm)}
                   style={{
                     padding: '10px 15px',
                     cursor: 'pointer',
                     fontSize: '14px',
                     transition: 'background 0.2s ease',
-                    borderLeft: selectedOption === value ? '3px solid #000' : '3px solid transparent'
+                    borderLeft: selectedOption === label ? '3px solid #000' : '3px solid transparent'
                   }}
                 >
                   {display}

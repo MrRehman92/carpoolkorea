@@ -7,6 +7,7 @@ import Pagination from "../../common/NewPagination";
 import SelectCompFunctional from "../../common/SelectCompFunctional";
 import EncarSidebar from "./EncarSidebar";
 import { getEncarVehicles, getEncarFilterOptions } from "@/utils/vehicles/encarAPI";
+import { useCurrency } from "@/context/CurrencyContext";
 
 // Encar Data Normalizer
 const normalizeEncarVehicle = (v) => {
@@ -42,14 +43,17 @@ export default function EncarListings() {
     const [vehicles, setVehicles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
-    const [perPage, setPerPage] = useState(20);
     const [totalRecords, setTotalRecords] = useState(0);
     const [sortbyOpt, setSortbyOpt] = useState('Sort By');
     const [sortbyVal, setSortbyVal] = useState('default');
-    const [langOpt, setLangOpt] = useState('Language: English');
+    const { currency, changeCurrency, convert, format } = useCurrency();
     const [isReady, setIsReady] = useState(false);
 
     const fetchIdRef = React.useRef(0);
+
+    // Initial Load: Sync preferences synchronously
+    const [perPage, setPerPage] = useState(20);
+    const [langOpt, setLangOpt] = useState('Language: English');
 
     // Filters State
     const [filters, setFilters] = useState({
@@ -70,15 +74,25 @@ export default function EncarListings() {
         badgeDetails: []
     });
 
-    // Initial Load: Sync preferences from localStorage
+    // Initial Load: Sync preferences after hydration
     useEffect(() => {
         const savedPerPage = localStorage.getItem("encar_per_page");
-        if (savedPerPage) {
-            setPerPage(Number(savedPerPage));
-        }
+        if (savedPerPage) setPerPage(Number(savedPerPage));
 
         const savedLang = localStorage.getItem("encar_lang") || 'en';
-        setFilters(prev => ({ ...prev, lang: savedLang }));
+        const savedFilters = localStorage.getItem("encar_filters");
+
+        let initialFilters = { lang: savedLang };
+        if (savedFilters) {
+            try {
+                const parsed = JSON.parse(savedFilters);
+                initialFilters = { ...initialFilters, ...parsed };
+            } catch (e) {
+                console.error("Failed to parse saved filters", e);
+            }
+        }
+
+        setFilters(prev => ({ ...prev, ...initialFilters }));
 
         let label = 'Language: English';
         if (savedLang === 'ko') label = 'Language: Korean';
@@ -87,6 +101,13 @@ export default function EncarListings() {
 
         setIsReady(true);
     }, []);
+
+    // Save filters to localStorage whenever they change
+    useEffect(() => {
+        if (!isReady) return;
+        const { lang, ...rest } = filters;
+        localStorage.setItem("encar_filters", JSON.stringify(rest));
+    }, [filters, isReady]);
 
     // Fetch filter options
     useEffect(() => {
@@ -190,6 +211,43 @@ export default function EncarListings() {
         setPage(1);
     };
 
+    const clearAllFilters = () => {
+        setFilters({
+            manufacturer: '',
+            model_group: '',
+            model: '',
+            badge_group: '',
+            badge: '',
+            badge_detail: '',
+            lang: filters.lang // Preserve language
+        });
+        localStorage.removeItem("encar_filters");
+        setPage(1);
+    };
+
+    const activeFilterLabels = React.useMemo(() => {
+        const labels = [];
+        const mapping = [
+            { key: 'manufacturer', list: filterOptions.manufacturers },
+            { key: 'model_group', list: filterOptions.modelGroups },
+            { key: 'model', list: filterOptions.models },
+            { key: 'badge_group', list: filterOptions.badgeGroups },
+            { key: 'badge', list: filterOptions.badges },
+            { key: 'badge_detail', list: filterOptions.badgeDetails }
+        ];
+
+        mapping.forEach(m => {
+            const val = filters[m.key];
+            if (val && m.list) {
+                const found = m.list.find(opt => opt.value === val);
+                if (found) {
+                    labels.push({ key: m.key, label: found.name });
+                }
+            }
+        });
+        return labels;
+    }, [filters, filterOptions]);
+
     const totalPages = Math.ceil(totalRecords / perPage);
     const from = (page - 1) * perPage + 1;
     const to = Math.min(page * perPage, totalRecords);
@@ -221,7 +279,7 @@ export default function EncarListings() {
                             <Link href="/">Home</Link>
                         </li>
                         <li>
-                            <span>Other Vehicles</span>
+                            <span>Encar Vehicles</span>
                         </li>
                     </ul>
                     <h2>Browse Encar Inventory</h2>
@@ -237,6 +295,32 @@ export default function EncarListings() {
                     {/* Listing */}
                     <div className="col-xl-9 col-lg-8 col-md-12 col-sm-12">
                         <div className="right-box">
+
+                            {/* Filter Status Bar */}
+                            {activeFilterLabels.length > 0 && (
+                                <div className="filter-summary mb-3 p-3 bg-light rounded d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                    <div className="d-flex flex-wrap gap-2">
+                                        {activeFilterLabels.map(item => (
+                                            <div key={item.key} className="badge bg-white text-dark border p-2 rounded-pill d-flex align-items-center gap-2">
+                                                <span className="fw-normal">{item.label}</span>
+                                                <span
+                                                    className="ms-1 cursor-pointer"
+                                                    style={{ fontSize: '18px', lineHeight: '14px', cursor: 'pointer', opacity: 0.6 }}
+                                                    onClick={() => handleFilterChange({ [item.key]: '' })}
+                                                >×</span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <button
+                                        onClick={clearAllFilters}
+                                        className="btn btn-link text-danger text-decoration-none p-0"
+                                        style={{ fontSize: '14px', fontWeight: 500 }}
+                                    >
+                                        Clear All
+                                    </button>
+                                </div>
+                            )}
 
                             {/* Listing Header */}
                             <div className="text-box mb-4">
@@ -270,6 +354,20 @@ export default function EncarListings() {
                                                     setFilters(prev => ({ ...prev, lang: newLang }));
                                                     setPage(1);
                                                 }}
+                                            />
+                                        </div>
+                                        <div className="form_boxes v3 me-3">
+                                            <SelectCompFunctional
+                                                options={[
+                                                    "Currency: USD",
+                                                    "Currency: KRW",
+                                                    "Currency: AED",
+                                                    "Currency: EUR",
+                                                    "Currency: GBP"
+                                                ]}
+                                                values={["USD", "KRW", "AED", "EUR", "GBP"]}
+                                                selectedValue={`Currency: ${currency}`}
+                                                onChange={(opt, val) => changeCurrency(val)}
                                             />
                                         </div>
                                         <div className="form_boxes v3 me-3">
@@ -404,7 +502,11 @@ export default function EncarListings() {
 
                                                         <div className="content-box-two cl-contentBoxTwo d-flex flex-column justify-content-between mb-3">
                                                             <h4 className="title">
-                                                                {typeof elm.price === 'number' ? <>₩ {fmt(elm.price / 100)} <small style={{ fontSize: '0.6em', fontWeight: 'normal' }}>Million</small></> : elm.price}
+                                                                {typeof elm.price === 'number'
+                                                                    ? (currency === 'KRW'
+                                                                        ? <>₩{(elm.price / 100).toLocaleString()} <small style={{ fontSize: '0.6em', fontWeight: 'normal' }}>Million Won</small></>
+                                                                        : format(convert(elm.price * 10000, "KRW")))
+                                                                    : elm.price}
                                                             </h4>
 
                                                             <Link href={`https://fem.encar.com/cars/detail/${elm.id}`} className="button" target="_blank" rel="noopener noreferrer">

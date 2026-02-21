@@ -10,26 +10,29 @@ import Context from "@/context/Context";
 import BackToTop from "@/components/common/BackToTop";
 import { usePathname } from "next/navigation";
 import { AuthProvider } from "@/context/AuthContext";
+import { CurrencyProvider } from "@/context/CurrencyContext";
 
 export default function ClientLayout({ children }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    import("bootstrap/dist/js/bootstrap.esm").catch(() => {});
+    import("bootstrap/dist/js/bootstrap.esm").catch(() => { });
     try {
       const { WOW } = require("wowjs");
       new WOW({ mobile: false, live: false }).init();
-    } catch (e) {}
+    } catch (e) { }
   }, [pathname]);
 
   return (
     <Context>
-      <MobileMenu />
-      <div className="boxcar-wrapper">
-        <AuthProvider>{children}</AuthProvider>
-      </div>
-      <FilterSidebar />
-      <BackToTop />
+      <CurrencyProvider>
+        <MobileMenu />
+        <div className="boxcar-wrapper">
+          <AuthProvider>{children}</AuthProvider>
+        </div>
+        <FilterSidebar />
+        <BackToTop />
+      </CurrencyProvider>
     </Context>
   );
 }

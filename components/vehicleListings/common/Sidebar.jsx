@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import SearchableDropdown from "../../common/SearchableDropdown";
 import Slider from "rc-slider";
 import "rc-slider/assets/index.css";
-import FilterInput from "./FilterInput";
+import RangeInput from "./RangeInput";
 import { DEFAULT_BOUNDS } from "@/constants/filters";
 
 export default function Sidebar({ onFilterChange, makes = [], makeIds = [], filterOptions = {}, defaults = {}, filters, hiddenFilters = [], endpoint }) {
@@ -257,7 +257,7 @@ export default function Sidebar({ onFilterChange, makes = [], makeIds = [], filt
                   <div className="form-column col-lg-6 pe-2">
                     <div className="form_boxes pe-2">
                       <label>Min</label>
-                      <FilterInput
+                      <RangeInput
                         placeholder={`${fmtNumber(ranges.min_mileage || 0)} km`}
                         value={filters.min_mileage}
                         onChange={(val) => handleInputChange('min_mileage', val)}
@@ -269,7 +269,7 @@ export default function Sidebar({ onFilterChange, makes = [], makeIds = [], filt
                   <div className="form-column col-lg-6 ps-2">
                     <div className="form_boxes pe-2">
                       <label>Max</label>
-                      <FilterInput
+                      <RangeInput
                         placeholder={`${fmtNumber(ranges.max_mileage || DEFAULT_BOUNDS.max_mileage)} km`}
                         value={filters.max_mileage}
                         onChange={(val) => handleInputChange('max_mileage', val)}
@@ -303,7 +303,7 @@ export default function Sidebar({ onFilterChange, makes = [], makeIds = [], filt
                   <div className="form-column col-lg-6 pe-2">
                     <div className="form_boxes pe-2">
                       <label>Min price</label>
-                      <FilterInput
+                      <RangeInput
                         placeholder={`$${fmtNumber(ranges.min_price || 0)}`}
                         value={filters.min_price}
                         onChange={(val) => handleInputChange('min_price', val)}
@@ -315,7 +315,7 @@ export default function Sidebar({ onFilterChange, makes = [], makeIds = [], filt
                   <div className="form-column col-lg-6 ps-2">
                     <div className="form_boxes pe-2">
                       <label>Max price</label>
-                      <FilterInput
+                      <RangeInput
                         placeholder={`$${fmtNumber(ranges.max_price || DEFAULT_BOUNDS.max_price)}`}
                         value={filters.max_price}
                         onChange={(val) => handleInputChange('max_price', val)}
@@ -490,7 +490,7 @@ export default function Sidebar({ onFilterChange, makes = [], makeIds = [], filt
                     <div className="form-column col-lg-6 pe-2">
                       <div className="form_boxes pe-2">
                         <label>From</label>
-                        <FilterInput
+                        <RangeInput
                           placeholder={`${fmtNumber(ranges.min_engine_volume || 0)} cc`}
                           value={filters.min_engine_volume}
                           onChange={(val) => handleInputChange('min_engine_volume', val)}
@@ -502,7 +502,7 @@ export default function Sidebar({ onFilterChange, makes = [], makeIds = [], filt
                     <div className="form-column col-lg-6 ps-2">
                       <div className="form_boxes pe-2">
                         <label>To</label>
-                        <FilterInput
+                        <RangeInput
                           placeholder={`${fmtNumber(ranges.max_engine_volume || DEFAULT_BOUNDS.max_engine_volume)} cc`}
                           value={filters.max_engine_volume}
                           onChange={(val) => handleInputChange('max_engine_volume', val)}
