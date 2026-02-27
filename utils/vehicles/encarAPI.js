@@ -3,16 +3,19 @@ import { api } from "../api";
 export const getEncarVehicles = async (page = 1, perPage = 20, sort = '', filters = {}) => {
     try {
         const start = (page - 1) * perPage;
+        const { car_type = 'Y', lang = 'en', ...restFilters } = filters;
 
         const params = {
             draw: page,
             start: start,
             length: perPage,
             sort: sort,
-            ...filters
+            car_type,
+            lang,
+            ...restFilters
         };
 
-        const res = await api.get('/encar/live', { params: { ...params, lang: filters.lang || 'en' } });
+        const res = await api.get('/encar/live', { params });
         return res.data;
     } catch (error) {
         console.error("Failed to fetch Encar vehicles:", error);

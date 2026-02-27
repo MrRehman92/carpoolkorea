@@ -139,7 +139,7 @@ export default function Listings({
     // Pagination & Sorting States
     const [pagination, setPagination] = useState(null);
     const [page, setPage] = useState(1);
-    const [perPage, setPerPage] = useState(50);
+    const [perPage, setPerPage] = useState(30);
     const [sortbyOpt, setSortbyOpt] = useState('Sort by');
     const [sortbyVal, setSortbyVal] = useState('default');
 
@@ -172,13 +172,35 @@ export default function Listings({
 
     const [isFiltersLoaded, setIsFiltersLoaded] = useState(false);
 
-    // Load perPage from local storage
+    // Filter storage key
+    const filterKey = useMemo(() => `listing_filters_${endpoint}`, [endpoint]);
+
+    // Load perPage and rawFilters from local storage
     useEffect(() => {
-        const saved = localStorage.getItem("vehicles_per_page");
-        if (saved) {
-            setPerPage(Number(saved));
+        // Load perPage
+        const savedPerPage = localStorage.getItem("per_page_vehicles");
+        if (savedPerPage) {
+            setPerPage(Number(savedPerPage));
         }
-    }, []);
+
+        // Load filters
+        try {
+            const savedFilters = localStorage.getItem(filterKey);
+            if (savedFilters) {
+                const parsed = JSON.parse(savedFilters);
+                setRawFilters({ ...DEFAULT_FILTERS, ...parsed });
+            }
+        } catch (e) {
+            console.error("Failed to load filters from localStorage", e);
+        }
+    }, [filterKey]);
+
+    // Save filters to local storage when they change
+    useEffect(() => {
+        if (isFiltersLoaded) {
+            localStorage.setItem(filterKey, JSON.stringify(rawFilters));
+        }
+    }, [rawFilters, filterKey, isFiltersLoaded]);
 
     // Active Filters
     const activeFilters = useMemo(
@@ -303,6 +325,7 @@ export default function Listings({
     // Clear all filters
     const clearAllFilters = () => {
         setRawFilters(DEFAULT_FILTERS);
+        localStorage.removeItem(filterKey);
         setPage(1);
     };
 
@@ -377,7 +400,7 @@ export default function Listings({
         const val = Number(value);
         setPerPage(val);
         setPage(1);
-        localStorage.setItem("vehicles_per_page", val);
+        localStorage.setItem("per_page_vehicles", val);
     };
 
     const handlePageChange = (pageNo) => {

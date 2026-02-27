@@ -67,11 +67,11 @@ export default function Nav() {
 
   return (
     <>
-      <li>
+      {/* <li>
         <Link className={pathname == "/home" ? "menuActive" : ""} href={`/home`}>
           Home
         </Link>
-      </li>
+      </li> */}
 
       {/* CARS */}
       <li className="current-dropdown current">
@@ -258,7 +258,7 @@ export default function Nav() {
             className={isMenuActive(carLinks) || pathname === "/encar" ? "menuActive" : ""}
             style={topLinkStyle}
           >
-            Encar
+            EnCar
           </Link>
 
           <button
@@ -291,21 +291,32 @@ export default function Nav() {
       </li>
 
       <li>
-        {/* <Link className={pathname == "/events" ? "menuActive" : ""} href={`/events`}> */}
+        <Link className={pathname === "/encar-import" ? "menuActive" : ""} href={`/encar-import`}>
+          EnCar Import
+        </Link>
+      </li>
+
+      <li>
+        <Link className={pathname == "/encar-cargo" ? "menuActive" : ""} href={`/encar-cargo`}>
+          EnCar Cargo
+        </Link>
+      </li>
+
+      {/* /////////// */}
+      {/* <li>
         <Link className={pathname == "/events" ? "menuActive" : ""} href={`/blog-list-03`}>
           Events
         </Link>
       </li>
 
       <li>
-        {/* <Link className={pathname == "/shipping" ? "menuActive" : ""} href={`/shipping`}> */}
         <Link className={pathname == "/shipping" ? "menuActive" : ""} href={`/terms`}>
           Shipping
         </Link>
-      </li>
+      </li> */}
 
       {/* MORE */}
-      <li className="current-dropdown current">
+      {/* <li className="current-dropdown current">
         <span className={isMenuActive(moreLinks) ? "menuActive" : ""}>
           More <i className="fa-solid fa-angle-down" />
         </span>
@@ -318,10 +329,10 @@ export default function Nav() {
             </li>
           ))}
         </ul>
-      </li>
+      </li> */}
 
       {/* THEME PAGES */}
-      <li className="current-dropdown right-one">
+      {/* <li className="current-dropdown right-one">
         <span className={isMenuActive(tempPagesA) ? "menuActive" : ""}>
           tempPagesA <i className="fa-solid fa-angle-down" />
         </span>
@@ -352,7 +363,7 @@ export default function Nav() {
             </li>
           ))}
         </ul>
-      </li>
+      </li> */}
     </>
   );
 }
