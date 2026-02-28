@@ -10,7 +10,7 @@ import { getEncarVehicles, getEncarFilterOptions } from "@/utils/vehicles/encarA
 import { useCurrency } from "@/context/CurrencyContext";
 
 // Encar Data Normalizer
-const normalizeEncarVehicle = (v) => {
+const normalizeEncarVehicle = (v, category = 'car') => {
     const imgBase = process.env.NEXT_PUBLIC_ENCAR_IMG_SRC;
     let mainImage = "/images/resource/about-inner1-5.jpg";
 
@@ -20,10 +20,10 @@ const normalizeEncarVehicle = (v) => {
         mainImage = `${imgBase}${v.Photo}001.jpg`;
     }
 
-    return {
+    const base = {
         id: v.Id,
         title: `${v.FormYear || ''} ${v.Manufacturer || 'Manufacturer'} ${v.Model || 'Model'}`.trim(),
-        price: v.Price !== undefined ? v.Price : "Price",
+        price: typeof v.Price === 'number' ? v.Price + 44 : (v.Price !== undefined ? v.Price : "Price"),
         year: v.FormYear || v.Year || "Year",
         mileage: v.Mileage !== undefined ? v.Mileage : "Mileage",
         fuel: v.FuelType || "Fuel Type",
@@ -32,14 +32,16 @@ const normalizeEncarVehicle = (v) => {
         vin: v.VIN || v.Vin || v.vin || "-",
         badge: v.Badge || "",
 
-        engine_volume: v.EngineVolume || "Engine Volume",
-        drive_type: v.DriveType || "Drive Type",
-        vehicle_type: v.VehicleType || "Vehicle Type",
+        engine_volume: v.EngineVolume || v.Capacity || "Engine Volume",
+        drive_type: v.DriveType || v.Use || "Drive Type",
+        vehicle_type: v.VehicleType || v.FormDetail || "Vehicle Type",
         seats: v.Seats || "Seats",
     };
+
+    return base;
 };
 
-export default function EncarListings({ carType = "Y" }) {
+export default function EncarListings({ carType = "Y", category = "car" }) {
     const [vehicles, setVehicles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
@@ -51,9 +53,9 @@ export default function EncarListings({ carType = "Y" }) {
 
     const fetchIdRef = React.useRef(0);
 
-    // const storageKey_perPage = `encar_per_page_${carType}`;
-    // const storageKey_lang = `encar_lang_${carType}`;
-    const storageKey_filters = `encar_filters_${carType}`;
+    const storageKey_filters = category === 'truck'
+        ? 'encar_filters_cargo'
+        : (carType === 'N' ? 'encar_filters_import' : 'encar_filters_domestic');
 
     // Initial Load: Sync preferences synchronously 
     const [perPage, setPerPage] = useState(30);
@@ -104,20 +106,21 @@ export default function EncarListings({ carType = "Y" }) {
         setLangOpt(label);
 
         setIsReady(true);
-    }, [carType]);
+    }, [carType, category, storageKey_filters]);
 
     // Save filters to localStorage whenever they change
     useEffect(() => {
         if (!isReady) return;
         const { lang, ...rest } = filters;
         localStorage.setItem(storageKey_filters, JSON.stringify(rest));
-    }, [filters, isReady, carType]);
+    }, [filters, isReady, carType, category, storageKey_filters]);
 
     // Fetch filter options
     useEffect(() => {
         if (!isReady) return;
 
         getEncarFilterOptions({
+            category,
             car_type: carType,
             manufacturer: filters.manufacturer,
             model_group: filters.model_group,
@@ -128,7 +131,7 @@ export default function EncarListings({ carType = "Y" }) {
         }).then(opts => {
             setFilterOptions(opts);
         });
-    }, [isReady, filters.manufacturer, filters.model_group, filters.model, filters.badge_group, filters.badge, filters.lang, carType]);
+    }, [isReady, filters.manufacturer, filters.model_group, filters.model, filters.badge_group, filters.badge, filters.lang, carType, category]);
 
     const fetchData = useCallback(async () => {
         if (!isReady) return;
@@ -137,12 +140,12 @@ export default function EncarListings({ carType = "Y" }) {
         setLoading(true);
 
         try {
-            const data = await getEncarVehicles(page, perPage, sortbyVal, { ...filters, car_type: carType });
+            const data = await getEncarVehicles(page, perPage, sortbyVal, { ...filters, car_type: carType, category });
 
             if (fetchId !== fetchIdRef.current) return;
 
             if (data && data.data) {
-                const norm = data.data.map(normalizeEncarVehicle);
+                const norm = data.data.map(v => normalizeEncarVehicle(v, category));
                 setVehicles(norm);
                 setTotalRecords(data.recordsTotal || 0);
             } else {
@@ -159,7 +162,7 @@ export default function EncarListings({ carType = "Y" }) {
                 setLoading(false);
             }
         }
-    }, [isReady, page, perPage, sortbyVal, filters, carType]);
+    }, [isReady, page, perPage, sortbyVal, filters, carType, category]);
 
     useEffect(() => {
         if (!isReady) return;
@@ -275,8 +278,8 @@ export default function EncarListings({ carType = "Y" }) {
         ];
     };
 
-    const displayTitle = carType === "N" ? "Encar Imported Vehicles" : "Encar Domestic Vehicles";
-    const displayTagline = carType === "N" ? "Browse Encar Imported Inventory" : "Browse Encar Domestic Inventory";
+    const displayTitle = category === 'truck' ? "Encar Cargo" : (carType === "N" ? "Encar Imported Vehicles" : "Encar Domestic Vehicles");
+    const displayTagline = category === 'truck' ? "Browse Encar Cargo Inventory" : (carType === "N" ? "Browse Encar Imported Inventory" : "Browse Encar Domestic Inventory");
 
     return (
         <section className="cars-section-thirteen layout-radius">
@@ -295,6 +298,7 @@ export default function EncarListings({ carType = "Y" }) {
 
                 <div className="row">
                     <EncarSidebar
+                        category={category}
                         filters={filters}
                         onFilterChange={handleFilterChange}
                         options={filterOptions}

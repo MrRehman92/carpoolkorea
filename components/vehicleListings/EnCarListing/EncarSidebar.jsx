@@ -2,7 +2,7 @@
 import React from "react";
 import SearchableDropdown from "./EncarSearchableDropdown";
 
-export default function EncarSidebar({ filters, onFilterChange, options }) {
+export default function EncarSidebar({ filters, onFilterChange, options, category = 'car' }) {
     const [labels, setLabels] = React.useState({
         manufacturer: '',
         model_group: '',
@@ -93,22 +93,24 @@ export default function EncarSidebar({ filters, onFilterChange, options }) {
                             </div>
                         </div>
 
-                        {/* Model Group */}
-                        <div className="col-lg-12">
-                            <div className="form_boxes">
-                                <label>Model Group</label>
-                                <SearchableDropdown
-                                    options={withAll(options.modelGroups, "All Model Groups")}
-                                    defaultValue={filters.model_group || ""}
-                                    placeholder="All Model Groups"
-                                    onSelect={(val, opt) => handleFilterUpdate("model_group", val, opt)}
-                                    displayKey="name"
-                                    valueKey="value"
-                                    disabled={!filters.manufacturer}
-                                    selectedLabel={labels.model_group}
-                                />
+                        {/* Model Group - Only for Cars */}
+                        {category !== 'truck' && (
+                            <div className="col-lg-12">
+                                <div className="form_boxes">
+                                    <label>Model Group</label>
+                                    <SearchableDropdown
+                                        options={withAll(options.modelGroups, "All Model Groups")}
+                                        defaultValue={filters.model_group || ""}
+                                        placeholder="All Model Groups"
+                                        onSelect={(val, opt) => handleFilterUpdate("model_group", val, opt)}
+                                        displayKey="name"
+                                        valueKey="value"
+                                        disabled={!filters.manufacturer}
+                                        selectedLabel={labels.model_group}
+                                    />
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* Model */}
                         <div className="col-lg-12">
@@ -121,29 +123,31 @@ export default function EncarSidebar({ filters, onFilterChange, options }) {
                                     onSelect={(val, opt) => handleFilterUpdate("model", val, opt)}
                                     displayKey="name"
                                     valueKey="value"
-                                    disabled={!filters.model_group}
+                                    disabled={category === 'truck' ? !filters.manufacturer : !filters.model_group}
                                     selectedLabel={labels.model}
                                     subLabelKey="year_range"
                                 />
                             </div>
                         </div>
 
-                        {/* Badge Group */}
-                        <div className="col-lg-12">
-                            <div className="form_boxes">
-                                <label>Badge Group</label>
-                                <SearchableDropdown
-                                    options={withAll(options.badgeGroups, "All Badge Groups")}
-                                    defaultValue={filters.badge_group || ""}
-                                    placeholder="All Badge Groups"
-                                    onSelect={(val, opt) => handleFilterUpdate("badge_group", val, opt)}
-                                    displayKey="name"
-                                    valueKey="value"
-                                    disabled={!filters.model}
-                                    selectedLabel={labels.badge_group}
-                                />
+                        {/* Badge Group - Only for Cars */}
+                        {category !== 'truck' && (
+                            <div className="col-lg-12">
+                                <div className="form_boxes">
+                                    <label>Badge Group</label>
+                                    <SearchableDropdown
+                                        options={withAll(options.badgeGroups, "All Badge Groups")}
+                                        defaultValue={filters.badge_group || ""}
+                                        placeholder="All Badge Groups"
+                                        onSelect={(val, opt) => handleFilterUpdate("badge_group", val, opt)}
+                                        displayKey="name"
+                                        valueKey="value"
+                                        disabled={!filters.model}
+                                        selectedLabel={labels.badge_group}
+                                    />
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* Badge */}
                         <div className="col-lg-12">
@@ -156,28 +160,30 @@ export default function EncarSidebar({ filters, onFilterChange, options }) {
                                     onSelect={(val, opt) => handleFilterUpdate("badge", val, opt)}
                                     displayKey="name"
                                     valueKey="value"
-                                    disabled={!filters.badge_group}
+                                    disabled={!filters.model} // For both, enabled once model is picked
                                     selectedLabel={labels.badge}
                                 />
                             </div>
                         </div>
 
-                        {/* Badge Detail */}
-                        <div className="col-lg-12">
-                            <div className="form_boxes">
-                                <label>Badge Detail</label>
-                                <SearchableDropdown
-                                    options={withAll(options.badgeDetails, "All Badge Details")}
-                                    defaultValue={filters.badge_detail || ""}
-                                    placeholder="All Badge Details"
-                                    onSelect={(val, opt) => handleFilterUpdate("badge_detail", val, opt)}
-                                    displayKey="name"
-                                    valueKey="value"
-                                    disabled={!filters.badge}
-                                    selectedLabel={labels.badge_detail}
-                                />
+                        {/* Badge Detail - Only for Cars */}
+                        {category !== 'truck' && (
+                            <div className="col-lg-12">
+                                <div className="form_boxes">
+                                    <label>Badge Detail</label>
+                                    <SearchableDropdown
+                                        options={withAll(options.badgeDetails, "All Badge Details")}
+                                        defaultValue={filters.badge_detail || ""}
+                                        placeholder="All Badge Details"
+                                        onSelect={(val, opt) => handleFilterUpdate("badge_detail", val, opt)}
+                                        displayKey="name"
+                                        valueKey="value"
+                                        disabled={!filters.badge}
+                                        selectedLabel={labels.badge_detail}
+                                    />
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 </div>
             </div>

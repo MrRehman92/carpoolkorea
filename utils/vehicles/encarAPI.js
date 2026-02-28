@@ -3,7 +3,7 @@ import { api } from "../api";
 export const getEncarVehicles = async (page = 1, perPage = 20, sort = '', filters = {}) => {
     try {
         const start = (page - 1) * perPage;
-        const { car_type = 'Y', lang = 'en', ...restFilters } = filters;
+        const { car_type = 'Y', category = 'car', lang = 'en', ...restFilters } = filters;
 
         const params = {
             draw: page,
@@ -11,6 +11,7 @@ export const getEncarVehicles = async (page = 1, perPage = 20, sort = '', filter
             length: perPage,
             sort: sort,
             car_type,
+            category,
             lang,
             ...restFilters
         };
@@ -30,7 +31,8 @@ export const getEncarVehicles = async (page = 1, perPage = 20, sort = '', filter
 
 export const getEncarFilterOptions = async (params = {}) => {
     try {
-        const res = await api.get('/encar/filter-options', { params });
+        const { category = 'car', ...rest } = params;
+        const res = await api.get('/encar/filter-options', { params: { category, ...rest } });
         return res.data;
     } catch (error) {
         console.error("Failed to fetch Encar filter options:", error);
